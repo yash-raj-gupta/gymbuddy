@@ -9,6 +9,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Dashboard",
+  robots: { index: false, follow: false },
+};
+
 // Auth + DB read → render per request, never prerendered.
 export const dynamic = "force-dynamic";
 

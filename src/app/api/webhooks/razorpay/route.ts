@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { verifyWebhookSignature } from "@/lib/payments";
 import { db } from "@/lib/db";
 import { checkRateLimit } from "@/lib/ratelimit";
@@ -25,18 +26,30 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid_signature" }, { status: 401 });
   }
 
-  let event: {
-    event: string;
-    payload?: {
-      payment?: { entity?: { notes?: Record<string, string> } };
-      order?: { entity?: { notes?: Record<string, string> } };
-    };
-  };
-  try {
-    event = JSON.parse(rawBody);
-  } catch {
-    return NextResponse.json({ error: "bad_json" }, { status: 400 });
+  const notesSchema = z.record(z.string(), z.string()).optional();
+  const eventSchema = z.object({
+    event: z.string(),
+    payload: z
+      .object({
+        payment: z.object({ entity: z.object({ notes: notesSchema }) }).optional(),
+        order: z.object({ entity: z.object({ notes: notesSchema }) }).optional(),
+      })
+      .optional(),
+  });
+
+  const parsed = eventSchema.safeParse(
+    (() => {
+      try {
+        return JSON.parse(rawBody);
+      } catch {
+        return null;
+      }
+    })(),
+  );
+  if (!parsed.success) {
+    return NextResponse.json({ error: "bad_payload" }, { status: 400 });
   }
+  const event = parsed.data;
 
   if (event.event === "payment.captured" || event.event === "order.paid") {
     const notes =

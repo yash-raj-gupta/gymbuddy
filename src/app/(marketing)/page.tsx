@@ -1,5 +1,26 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
+import { JsonLd } from "@/components/json-ld";
+
+const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
+export const metadata: Metadata = {
+  title: "GymBuddy — log every set, beat last week",
+  description:
+    "Offline-first workout tracker for split training. Log reps, sets and weight in seconds, apply progressive overload, see if you beat last week. Free tier, ₹99/mo Pro.",
+  alternates: { canonical: appUrl },
+  openGraph: {
+    title: "GymBuddy — log every set, beat last week",
+    description:
+      "Offline-first workout tracker for split training. Progressive overload, no bloat.",
+    url: appUrl,
+    siteName: "GymBuddy",
+    locale: "en_IN",
+    type: "website",
+  },
+  robots: { index: true, follow: true },
+};
 import {
   Card,
   CardContent,
@@ -39,8 +60,44 @@ const faqs = [
 ];
 
 export default function LandingPage() {
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        name: "GymBuddy",
+        url: appUrl,
+      },
+      {
+        "@type": "WebSite",
+        name: "GymBuddy",
+        url: appUrl,
+      },
+      {
+        "@type": "SoftwareApplication",
+        name: "GymBuddy",
+        applicationCategory: "HealthApplication",
+        operatingSystem: "Web, Android (PWA)",
+        offers: {
+          "@type": "Offer",
+          price: "0",
+          priceCurrency: "INR",
+        },
+      },
+      {
+        "@type": "FAQPage",
+        mainEntity: faqs.map((f) => ({
+          "@type": "Question",
+          name: f.q,
+          acceptedAnswer: { "@type": "Answer", text: f.a },
+        })),
+      },
+    ],
+  };
+
   return (
     <main className="flex-1">
+      <JsonLd data={jsonLd} />
       <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-6">
         <span className="text-lg font-bold tracking-tight">GymBuddy</span>
         <nav className="flex items-center gap-3 text-sm">

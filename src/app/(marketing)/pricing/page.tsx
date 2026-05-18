@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { JsonLd } from "@/components/json-ld";
+
+const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 import {
   Card,
   CardContent,
@@ -13,7 +16,18 @@ import {
 
 export const metadata: Metadata = {
   title: "Pricing",
-  description: "INR-first pricing. Free forever tier, ₹99/mo Pro, Founder Lifetime ₹1,499.",
+  description:
+    "INR-first pricing. Free forever tier, ₹99/mo Pro, Founder Lifetime ₹1,499 for the first 100 users.",
+  alternates: { canonical: `${appUrl}/pricing` },
+  openGraph: {
+    title: "GymBuddy Pricing",
+    description: "Free forever tier, ₹99/mo Pro, Founder Lifetime ₹1,499.",
+    url: `${appUrl}/pricing`,
+    siteName: "GymBuddy",
+    locale: "en_IN",
+    type: "website",
+  },
+  robots: { index: true, follow: true },
 };
 
 const tiers = [
@@ -65,6 +79,35 @@ const tiers = [
 export default function PricingPage() {
   return (
     <main className="mx-auto max-w-5xl flex-1 px-6 py-16">
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "Product",
+          name: "GymBuddy Pro",
+          description:
+            "Offline-first workout tracker. Unlimited history, progress charts, PR tracking, CSV export.",
+          offers: [
+            {
+              "@type": "Offer",
+              name: "Pro Monthly",
+              price: "99",
+              priceCurrency: "INR",
+            },
+            {
+              "@type": "Offer",
+              name: "Pro Yearly",
+              price: "799",
+              priceCurrency: "INR",
+            },
+            {
+              "@type": "Offer",
+              name: "Founder Lifetime",
+              price: "1499",
+              priceCurrency: "INR",
+            },
+          ],
+        }}
+      />
       <div className="mb-12 text-center">
         <h1 className="text-3xl font-bold tracking-tight">Simple pricing</h1>
         <p className="mt-3 text-muted-foreground">
