@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { JsonLd } from "@/components/json-ld";
+import { ParallaxHero } from "@/components/parallax-hero";
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
@@ -110,27 +111,7 @@ export default function LandingPage() {
         </nav>
       </header>
 
-      <section className="mx-auto max-w-3xl px-6 py-20 text-center">
-        <h1 className="text-balance text-4xl font-bold tracking-tight sm:text-6xl">
-          Log every set. Beat last week.
-        </h1>
-        <p className="mx-auto mt-6 max-w-xl text-balance text-lg text-muted-foreground">
-          The offline-first workout tracker for people who train a real split.
-          No bloat, no subscriptions you forget to cancel. Just log → see
-          progress.
-        </p>
-        <div className="mt-8 flex justify-center gap-3">
-          <Link href="/sign-up" className={buttonVariants({ size: "lg" })}>
-            Start free
-          </Link>
-          <Link
-            href="/pricing"
-            className={buttonVariants({ size: "lg", variant: "outline" })}
-          >
-            See pricing
-          </Link>
-        </div>
-      </section>
+      <ParallaxHero />
 
       <section className="mx-auto grid max-w-5xl gap-6 px-6 pb-20 sm:grid-cols-3">
         {features.map((f) => (

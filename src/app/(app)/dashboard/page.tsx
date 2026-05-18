@@ -1,53 +1,117 @@
-import { UserButton } from "@clerk/nextjs";
+import type { Metadata } from "next";
+import Link from "next/link";
 import { requireAuth } from "@/lib/auth";
-import { Button } from "@/components/ui/button";
+import { db } from "@/lib/db";
+import { historyCutoff, isPro } from "@/lib/plan";
+import { AppNav } from "@/components/app-nav";
+import { StartWorkout } from "@/components/start-workout";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-
-import type { Metadata } from "next";
+import { Badge } from "@/components/ui/badge";
 
 export const metadata: Metadata = {
   title: "Dashboard",
   robots: { index: false, follow: false },
 };
 
-// Auth + DB read → render per request, never prerendered.
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const user = await requireAuth();
+  const cutoff = historyCutoff(user.plan);
+
+  const workouts = await db.workout.findMany({
+    where: {
+      userId: user.id,
+      finishedAt: { not: null },
+      ...(cutoff ? { startedAt: { gte: cutoff } } : {}),
+    },
+    orderBy: { startedAt: "desc" },
+    take: 30,
+    include: { sets: { include: { exercise: true } } },
+  });
 
   return (
-    <main className="mx-auto max-w-3xl flex-1 px-6 py-10">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Dashboard</h1>
-          <p className="text-sm text-muted-foreground">
-            {user.email} · {user.plan} plan
-          </p>
+    <div className="min-h-dvh pb-20 sm:pb-0">
+      <AppNav />
+      <main className="mx-auto max-w-3xl space-y-6 px-4 py-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">
+              Welcome back
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {user.email} ·{" "}
+              <Badge variant={isPro(user.plan) ? "default" : "secondary"}>
+                {user.plan}
+              </Badge>
+            </p>
+          </div>
         </div>
-        <UserButton />
-      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Start a workout</CardTitle>
-          <CardDescription>
-            Pick a routine or log ad-hoc. Sets prefill from your last session.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Button disabled>Start workout (coming next)</Button>
-          <p className="mt-3 text-xs text-muted-foreground">
-            Logging UI is the next build phase per the PRD.
-          </p>
-        </CardContent>
-      </Card>
-    </main>
+        <StartWorkout />
+
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Recent workouts</h2>
+            {!isPro(user.plan) && (
+              <Link
+                href="/pricing"
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                Free: last 30 days · Upgrade →
+              </Link>
+            )}
+          </div>
+
+          {workouts.length === 0 ? (
+            <Card>
+              <CardContent className="py-10 text-center text-sm text-muted-foreground">
+                No workouts yet. Hit{" "}
+                <span className="font-medium text-foreground">
+                  Start workout
+                </span>{" "}
+                and log your first set.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {workouts.map((w) => {
+                const exercises = new Set(w.sets.map((s) => s.exerciseId));
+                const volume = w.sets
+                  .filter((s) => s.done)
+                  .reduce((sum, s) => sum + s.weight * s.reps, 0);
+                return (
+                  <Card key={w.id}>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="flex items-center justify-between text-base">
+                        <span>
+                          {new Date(w.startedAt).toLocaleDateString("en-IN", {
+                            weekday: "short",
+                            day: "numeric",
+                            month: "short",
+                          })}
+                        </span>
+                        <span className="text-sm font-normal text-muted-foreground">
+                          {exercises.size} exercises · {w.sets.length} sets
+                        </span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0 text-sm text-muted-foreground">
+                      Volume: {Math.round(volume).toLocaleString("en-IN")} kg·reps
+                      {w.note ? ` · ${w.note}` : ""}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      </main>
+    </div>
   );
 }
