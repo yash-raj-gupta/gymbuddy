@@ -8,6 +8,11 @@ let _ratelimit: Ratelimit | null = null;
 
 function getRatelimit(): Ratelimit {
   if (!_ratelimit) {
+    if (!env.UPSTASH_REDIS_REST_URL || !env.UPSTASH_REDIS_REST_TOKEN) {
+      throw new Error(
+        "Upstash not configured: set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN in .env.local",
+      );
+    }
     const redis = new Redis({
       url: env.UPSTASH_REDIS_REST_URL,
       token: env.UPSTASH_REDIS_REST_TOKEN,

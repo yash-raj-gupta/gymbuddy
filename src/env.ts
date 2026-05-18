@@ -10,13 +10,15 @@ export const env = createEnv({
     DATABASE_URL: z.string().url(),
     DIRECT_URL: z.string().url().optional(),
     CLERK_SECRET_KEY: z.string().min(1),
-    RESEND_API_KEY: z.string().min(1),
-    RAZORPAY_KEY_ID: z.string().min(1),
-    RAZORPAY_KEY_SECRET: z.string().min(1),
-    RAZORPAY_WEBHOOK_SECRET: z.string().min(1),
+    // Optional until the email / payment / webhook flows are built.
+    // Internal-v1 dogfooding only needs DB + Clerk.
+    RESEND_API_KEY: z.string().min(1).optional(),
+    RAZORPAY_KEY_ID: z.string().min(1).optional(),
+    RAZORPAY_KEY_SECRET: z.string().min(1).optional(),
+    RAZORPAY_WEBHOOK_SECRET: z.string().min(1).optional(),
     SENTRY_DSN: z.string().url().optional(),
-    UPSTASH_REDIS_REST_URL: z.string().url(),
-    UPSTASH_REDIS_REST_TOKEN: z.string().min(1),
+    UPSTASH_REDIS_REST_URL: z.string().url().optional(),
+    UPSTASH_REDIS_REST_TOKEN: z.string().min(1).optional(),
     ANTHROPIC_API_KEY: z.string().min(1).optional(),
   },
   client: {

@@ -16,6 +16,11 @@ export type PlanKey = keyof typeof PLANS;
 let _razorpay: Razorpay | null = null;
 export function getRazorpay(): Razorpay {
   if (!_razorpay) {
+    if (!env.RAZORPAY_KEY_ID || !env.RAZORPAY_KEY_SECRET) {
+      throw new Error(
+        "Razorpay not configured: set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in .env.local",
+      );
+    }
     _razorpay = new Razorpay({
       key_id: env.RAZORPAY_KEY_ID,
       key_secret: env.RAZORPAY_KEY_SECRET,
@@ -39,6 +44,9 @@ export function verifyPaymentSignature(args: {
   paymentId: string;
   signature: string;
 }): boolean {
+  if (!env.RAZORPAY_KEY_SECRET) {
+    throw new Error("Razorpay not configured: missing RAZORPAY_KEY_SECRET");
+  }
   const expected = crypto
     .createHmac("sha256", env.RAZORPAY_KEY_SECRET)
     .update(`${args.orderId}|${args.paymentId}`)
@@ -51,6 +59,9 @@ export function verifyWebhookSignature(
   rawBody: string,
   signature: string,
 ): boolean {
+  if (!env.RAZORPAY_WEBHOOK_SECRET) {
+    throw new Error("Razorpay not configured: missing RAZORPAY_WEBHOOK_SECRET");
+  }
   const expected = crypto
     .createHmac("sha256", env.RAZORPAY_WEBHOOK_SECRET)
     .update(rawBody)
