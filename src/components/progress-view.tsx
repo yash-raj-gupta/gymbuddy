@@ -138,7 +138,7 @@ export function ProgressView({ exercises }: { exercises: Opt[] }) {
                     <Line
                       type="monotone"
                       dataKey="est1RM"
-                      stroke="#f59e0b"
+                      stroke="var(--chart-4)"
                       strokeWidth={2}
                       dot={false}
                       name="Est. 1RM"
