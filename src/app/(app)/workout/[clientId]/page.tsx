@@ -196,17 +196,18 @@ export default function ActiveWorkoutPage() {
             <CardTitle className="text-base">{g.name}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            <div className="grid grid-cols-[1.5rem_1fr_1fr_2.5rem_2rem] items-center gap-2 text-xs text-muted-foreground">
+            <div className="grid grid-cols-[1.25rem_1fr_1fr_3rem_2.5rem_1.75rem] items-center gap-2 text-xs text-muted-foreground">
               <span>#</span>
-              <span>Weight (kg)</span>
+              <span>kg</span>
               <span>Reps</span>
+              <span className="text-center">RPE</span>
               <span className="text-center">Done</span>
               <span />
             </div>
             {g.sets.map((s, i) => (
               <div
                 key={s.id}
-                className="grid grid-cols-[1.5rem_1fr_1fr_2.5rem_2rem] items-center gap-2"
+                className="grid grid-cols-[1.25rem_1fr_1fr_3rem_2.5rem_1.75rem] items-center gap-2"
               >
                 <span className="text-sm text-muted-foreground">{i + 1}</span>
                 <Input
@@ -226,6 +227,21 @@ export default function ActiveWorkoutPage() {
                     patchSet(s.id, { reps: Number(e.target.value) || 0 })
                   }
                   className="h-9"
+                />
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.5"
+                  min="1"
+                  max="10"
+                  placeholder="–"
+                  value={s.rpe ?? ""}
+                  onChange={(e) =>
+                    patchSet(s.id, {
+                      rpe: e.target.value ? Number(e.target.value) : null,
+                    })
+                  }
+                  className="h-9 px-1 text-center"
                 />
                 <button
                   onClick={() => patchSet(s.id, { done: !s.done })}

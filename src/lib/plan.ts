@@ -1,8 +1,16 @@
 import type { Plan } from "@/generated/prisma/enums";
 
-// gymbuddy-prd.md §3 — free-tier limits enforced server-side.
+// gymbuddy-prd.md §3 — tiering intentionally OPEN for now: everything is
+// free until tier boundaries are decided. To re-enable gating, restore
+// FREE to { maxRoutines: 1, historyDays: 30, charts: false, csvExport: false }
+// and revert isPro() below.
 export const LIMITS = {
-  FREE: { maxRoutines: 1, historyDays: 30, charts: false, csvExport: false },
+  FREE: {
+    maxRoutines: Infinity,
+    historyDays: Infinity,
+    charts: true,
+    csvExport: true,
+  },
   PRO: {
     maxRoutines: Infinity,
     historyDays: Infinity,
@@ -21,8 +29,9 @@ export function limitsFor(plan: Plan) {
   return LIMITS[plan];
 }
 
-export function isPro(plan: Plan) {
-  return plan === "PRO" || plan === "LIFETIME";
+export function isPro(_plan: Plan) {
+  // Tiering open for now — treat everyone as Pro. See LIMITS note above.
+  return true;
 }
 
 /** Oldest date a user is allowed to read history from (free = 30 days). */

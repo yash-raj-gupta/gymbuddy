@@ -130,3 +130,43 @@
     @apply font-sans;
   }
 }
+
+/* Quick, snappy entrance animations */
+@keyframes gb-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes gb-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+.gb-reveal {
+  opacity: 0;
+}
+.gb-reveal.gb-in {
+  animation: gb-fade-up 0.38s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.gb-float {
+  animation: gb-float 4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gb-reveal,
+  .gb-reveal.gb-in {
+    opacity: 1;
+    animation: none;
+  }
+  .gb-float {
+    animation: none;
+  }
+}

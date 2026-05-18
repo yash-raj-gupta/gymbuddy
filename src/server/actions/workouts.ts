@@ -209,10 +209,38 @@ export async function syncOfflineWorkout(raw: unknown) {
   const user = await requireAuth();
   const data = OfflineWorkout.parse(raw);
 
+  const setCreate = data.sets.map((s) => ({
+    exerciseId: s.exerciseId,
+    reps: s.reps,
+    weight: s.weight,
+    rpe: s.rpe ?? null,
+    done: s.done,
+    order: s.order,
+  }));
+
   const existing = await db.workout.findUnique({
     where: { clientId: data.clientId },
   });
-  if (existing) return { id: existing.id, deduped: true };
+
+  // `startWorkout` reserves a row with this clientId; the finished payload
+  // must overwrite it (full replace) — not dedupe-and-skip, or the workout
+  // would never get finishedAt/sets and never show on the dashboard.
+  if (existing) {
+    if (existing.userId !== user.id) throw new Error("Not your workout");
+    await db.setLog.deleteMany({ where: { workoutId: existing.id } });
+    await db.workout.update({
+      where: { id: existing.id },
+      data: {
+        startedAt: new Date(data.startedAt),
+        finishedAt: data.finishedAt ? new Date(data.finishedAt) : null,
+        note: data.note ?? null,
+        sets: { create: setCreate },
+      },
+    });
+    revalidatePath("/dashboard");
+    revalidatePath("/progress");
+    return { id: existing.id, deduped: false };
+  }
 
   const created = await db.workout.create({
     data: {
@@ -221,18 +249,10 @@ export async function syncOfflineWorkout(raw: unknown) {
       startedAt: new Date(data.startedAt),
       finishedAt: data.finishedAt ? new Date(data.finishedAt) : null,
       note: data.note ?? null,
-      sets: {
-        create: data.sets.map((s) => ({
-          exerciseId: s.exerciseId,
-          reps: s.reps,
-          weight: s.weight,
-          rpe: s.rpe ?? null,
-          done: s.done,
-          order: s.order,
-        })),
-      },
+      sets: { create: setCreate },
     },
   });
   revalidatePath("/dashboard");
+  revalidatePath("/progress");
   return { id: created.id, deduped: false };
 }

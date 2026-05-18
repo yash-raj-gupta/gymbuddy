@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { historyCutoff, isPro } from "@/lib/plan";
 import { AppNav } from "@/components/app-nav";
 import { StartWorkout } from "@/components/start-workout";
+import { ExportButton } from "@/components/export-button";
 import {
   Card,
   CardContent,
@@ -58,14 +59,7 @@ export default async function DashboardPage() {
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Recent workouts</h2>
-            {!isPro(user.plan) && (
-              <Link
-                href="/pricing"
-                className="text-xs text-muted-foreground hover:text-foreground"
-              >
-                Free: last 30 days · Upgrade →
-              </Link>
-            )}
+            {workouts.length > 0 && <ExportButton />}
           </div>
 
           {workouts.length === 0 ? (
@@ -86,26 +80,29 @@ export default async function DashboardPage() {
                   .filter((s) => s.done)
                   .reduce((sum, s) => sum + s.weight * s.reps, 0);
                 return (
-                  <Card key={w.id}>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="flex items-center justify-between text-base">
-                        <span>
-                          {new Date(w.startedAt).toLocaleDateString("en-IN", {
-                            weekday: "short",
-                            day: "numeric",
-                            month: "short",
-                          })}
-                        </span>
-                        <span className="text-sm font-normal text-muted-foreground">
-                          {exercises.size} exercises · {w.sets.length} sets
-                        </span>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="pt-0 text-sm text-muted-foreground">
-                      Volume: {Math.round(volume).toLocaleString("en-IN")} kg·reps
-                      {w.note ? ` · ${w.note}` : ""}
-                    </CardContent>
-                  </Card>
+                  <Link key={w.id} href={`/history/${w.id}`} className="block">
+                    <Card className="transition-colors hover:border-primary/50 hover:bg-muted/40">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="flex items-center justify-between text-base">
+                          <span>
+                            {new Date(w.startedAt).toLocaleDateString("en-IN", {
+                              weekday: "short",
+                              day: "numeric",
+                              month: "short",
+                            })}
+                          </span>
+                          <span className="text-sm font-normal text-muted-foreground">
+                            {exercises.size} exercises · {w.sets.length} sets
+                          </span>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-0 text-sm text-muted-foreground">
+                        Volume:{" "}
+                        {Math.round(volume).toLocaleString("en-IN")} kg·reps
+                        {w.note ? ` · ${w.note}` : ""}
+                      </CardContent>
+                    </Card>
+                  </Link>
                 );
               })}
             </div>

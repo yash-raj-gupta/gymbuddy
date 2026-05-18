@@ -47,7 +47,7 @@ export function ParallaxHero() {
   }, []);
 
   return (
-    <section className="relative isolate flex min-h-[88vh] items-center overflow-hidden">
+    <section className="relative isolate flex min-h-[78vh] items-center overflow-hidden">
       {/* Layer 0 — perspective grid */}
       <div
         ref={grid}
@@ -80,7 +80,7 @@ export function ParallaxHero() {
       {/* Foreground */}
       <div
         ref={fore}
-        className="mx-auto w-full max-w-3xl px-6 py-24 text-center will-change-transform"
+        className="mx-auto w-full max-w-3xl px-6 py-14 text-center will-change-transform"
       >
         <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-background/60 px-4 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur">
           <span className="size-1.5 rounded-full bg-primary" />
