@@ -6,6 +6,7 @@ import { UserButton } from "@clerk/nextjs";
 import { Dumbbell, LayoutGrid, ListChecks, LineChart } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useOnline } from "@/lib/use-online";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const links = [
   { href: "/dashboard", label: "Home", icon: LayoutGrid },
@@ -32,6 +33,7 @@ export function AppNav() {
                 Offline
               </span>
             )}
+            <ThemeToggle />
             <UserButton />
           </div>
         </div>

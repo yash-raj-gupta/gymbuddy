@@ -22,6 +22,13 @@ export const metadata: Metadata = {
   applicationName: "GymBuddy",
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, title: "GymBuddy", statusBarStyle: "default" },
+  icons: {
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-icon.png", sizes: "180x180" }],
+  },
   openGraph: {
     title: "GymBuddy — log every set, beat last week",
     description:
@@ -46,8 +53,17 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <script
+          // Set theme before paint to avoid a flash. Default: dark.
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('gb-theme')||'dark';var m=window.matchMedia('(prefers-color-scheme:dark)').matches;document.documentElement.classList.toggle('dark',t==='dark'||(t==='system'&&m));}catch(e){document.documentElement.classList.add('dark');}})();`,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
         <AnalyticsProvider>{children}</AnalyticsProvider>
       </body>

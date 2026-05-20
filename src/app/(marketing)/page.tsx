@@ -7,8 +7,10 @@ import {
   Repeat,
   Timer,
   ListChecks,
+  Dumbbell,
 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { JsonLd } from "@/components/json-ld";
 import { ParallaxHero } from "@/components/parallax-hero";
 import { AppPreview } from "@/components/app-preview";
@@ -127,17 +129,32 @@ export default function LandingPage() {
     <main className="flex-1">
       <JsonLd data={jsonLd} />
 
-      <header className="sticky top-0 z-40 border-b border-transparent bg-background/70 backdrop-blur transition-colors">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <span className="text-lg font-bold tracking-tight">GymBuddy</span>
-          <nav className="flex items-center gap-4 text-sm">
+      <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-3.5">
+          <Link href="/" className="flex items-center gap-2">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <Dumbbell className="size-4" />
+            </span>
+            <span className="text-lg font-bold tracking-tight">GymBuddy</span>
+          </Link>
+          <nav className="flex items-center gap-2 sm:gap-3 text-sm">
             <Link
               href="/pricing"
-              className="text-muted-foreground hover:text-foreground"
+              className="hidden px-2 text-muted-foreground hover:text-foreground sm:block"
             >
               Pricing
             </Link>
-            <Link href="/sign-up" className={buttonVariants({ size: "sm" })}>
+            <Link
+              href="/sign-in"
+              className="px-2 text-muted-foreground hover:text-foreground"
+            >
+              Log in
+            </Link>
+            <ThemeToggle />
+            <Link
+              href="/sign-up"
+              className={buttonVariants({ size: "sm", className: "shadow-sm" })}
+            >
               Start free
             </Link>
           </nav>
