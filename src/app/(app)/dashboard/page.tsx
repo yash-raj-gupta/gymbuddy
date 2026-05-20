@@ -6,6 +6,8 @@ import { historyCutoff, isPro } from "@/lib/plan";
 import { AppNav } from "@/components/app-nav";
 import { StartWorkout } from "@/components/start-workout";
 import { ExportButton } from "@/components/export-button";
+import { DashboardStats } from "@/components/dashboard-stats";
+import { getDashboardSummary } from "@/server/actions/dashboard";
 import {
   Card,
   CardContent,
@@ -25,16 +27,19 @@ export default async function DashboardPage() {
   const user = await requireAuth();
   const cutoff = historyCutoff(user.plan);
 
-  const workouts = await db.workout.findMany({
-    where: {
-      userId: user.id,
-      finishedAt: { not: null },
-      ...(cutoff ? { startedAt: { gte: cutoff } } : {}),
-    },
-    orderBy: { startedAt: "desc" },
-    take: 30,
-    include: { sets: { include: { exercise: true } } },
-  });
+  const [workouts, summary] = await Promise.all([
+    db.workout.findMany({
+      where: {
+        userId: user.id,
+        finishedAt: { not: null },
+        ...(cutoff ? { startedAt: { gte: cutoff } } : {}),
+      },
+      orderBy: { startedAt: "desc" },
+      take: 30,
+      include: { sets: { include: { exercise: true } } },
+    }),
+    getDashboardSummary(),
+  ]);
 
   return (
     <div className="min-h-dvh pb-20 sm:pb-0">
@@ -55,6 +60,8 @@ export default async function DashboardPage() {
         </div>
 
         <StartWorkout />
+
+        <DashboardStats summary={summary} />
 
         <section className="space-y-3">
           <div className="flex items-center justify-between">

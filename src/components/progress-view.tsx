@@ -99,11 +99,20 @@ export function ProgressView({ exercises }: { exercises: Opt[] }) {
         <>
           {prs && (
             <div className="grid grid-cols-3 gap-2">
-              <PrBadge label="Heaviest" value={`${prs.heaviestWeight} kg`} />
-              <PrBadge label="Best e1RM" value={`${prs.bestEst1RM} kg`} />
+              <PrBadge
+                label="Heaviest"
+                value={`${prs.heaviestWeight} kg`}
+                at={prs.heaviestAt}
+              />
+              <PrBadge
+                label="Best e1RM"
+                value={`${prs.bestEst1RM} kg`}
+                at={prs.bestEst1RMAt}
+              />
               <PrBadge
                 label="Best volume"
                 value={prs.bestVolume.toLocaleString("en-IN")}
+                at={prs.bestVolumeAt}
               />
             </div>
           )}
@@ -188,15 +197,34 @@ export function ProgressView({ exercises }: { exercises: Opt[] }) {
   );
 }
 
-function PrBadge({ label, value }: { label: string; value: string }) {
+function PrBadge({
+  label,
+  value,
+  at,
+}: {
+  label: string;
+  value: string;
+  at?: string;
+}) {
+  const when = at
+    ? new Date(at).toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short",
+      })
+    : null;
   return (
     <Card>
-      <CardContent className="p-3 text-center">
+      <CardContent className="space-y-1 p-3 text-center">
         <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="mt-1 font-bold">{value}</p>
-        <Badge variant="secondary" className="mt-1 text-[10px]">
-          PR
-        </Badge>
+        <p className="font-bold">{value}</p>
+        <div className="flex items-center justify-center gap-1.5">
+          <Badge variant="secondary" className="text-[10px]">
+            PR
+          </Badge>
+          {when && (
+            <span className="text-[10px] text-muted-foreground">{when}</span>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

@@ -57,6 +57,7 @@ export async function getPRs(exerciseIdRaw: string) {
       done: true,
       workout: { userId: user.id, finishedAt: { not: null } },
     },
+    include: { workout: { select: { startedAt: true } } },
   });
   if (sets.length === 0) return null;
 
@@ -70,9 +71,13 @@ export async function getPRs(exerciseIdRaw: string) {
     const v = s.weight * s.reps;
     if (v > bestVolume.value) bestVolume = { value: v, set: s };
   }
+  const iso = (d: Date) => d.toISOString();
   return {
     heaviestWeight: heaviest.weight,
+    heaviestAt: iso(heaviest.workout.startedAt),
     bestEst1RM: Math.round(best1RM.value * 10) / 10,
+    bestEst1RMAt: iso(best1RM.set.workout.startedAt),
     bestVolume: bestVolume.value,
+    bestVolumeAt: iso(bestVolume.set.workout.startedAt),
   };
 }
