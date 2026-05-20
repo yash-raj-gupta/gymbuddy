@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { InstallPWA } from "@/components/install-pwa";
 import { JsonLd } from "@/components/json-ld";
 import { ParallaxHero } from "@/components/parallax-hero";
 import { AppPreview } from "@/components/app-preview";
@@ -150,6 +151,7 @@ export default function LandingPage() {
             >
               Log in
             </Link>
+            <InstallPWA />
             <ThemeToggle />
             <Link
               href="/sign-up"
