@@ -14,7 +14,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { InstallPWA } from "@/components/install-pwa";
 import { JsonLd } from "@/components/json-ld";
 import { ParallaxHero } from "@/components/parallax-hero";
-import { AppPreview } from "@/components/app-preview";
+import { ScrollLinkedPreview } from "@/components/scroll-linked-preview";
 import { Reveal } from "@/components/reveal";
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
@@ -199,7 +199,7 @@ export default function LandingPage() {
             </Link>
           </Reveal>
           <Reveal delay={120}>
-            <AppPreview />
+            <ScrollLinkedPreview />
           </Reveal>
         </div>
       </section>
@@ -214,7 +214,7 @@ export default function LandingPage() {
         <div className="grid gap-4 sm:grid-cols-3">
           {steps.map((s, i) => (
             <Reveal key={s.n} delay={i * 90}>
-              <div className="h-full rounded-2xl border bg-card p-6">
+              <div className="h-full rounded-2xl border bg-card p-6 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-md hover:shadow-primary/10">
                 <div className="mb-3 flex size-9 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
                   {s.n}
                 </div>
@@ -237,7 +237,7 @@ export default function LandingPage() {
             const Icon = f.icon;
             return (
               <Reveal key={f.title} delay={(i % 3) * 80}>
-                <div className="group h-full rounded-2xl border bg-card p-6 transition-colors hover:border-primary/40">
+                <div className="group h-full rounded-2xl border bg-card p-6 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md hover:shadow-primary/10">
                   <div className="mb-3 flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary transition-transform group-hover:scale-105">
                     <Icon className="size-5" />
                   </div>

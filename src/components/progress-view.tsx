@@ -122,26 +122,60 @@ export function ProgressView({ exercises }: { exercises: Opt[] }) {
                 </p>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={points}>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                    <XAxis dataKey="date" fontSize={11} />
-                    <YAxis fontSize={11} width={32} />
-                    <Tooltip />
+                  <LineChart
+                    data={points}
+                    margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" opacity={0.18} />
+                    <XAxis
+                      dataKey="date"
+                      fontSize={11}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      fontSize={11}
+                      width={32}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <Tooltip
+                      cursor={{
+                        stroke: "var(--primary)",
+                        strokeOpacity: 0.25,
+                        strokeWidth: 1,
+                      }}
+                      contentStyle={{
+                        background: "var(--popover)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 8,
+                        fontSize: 12,
+                      }}
+                    />
                     <Line
                       type="monotone"
                       dataKey="topWeight"
                       stroke="var(--primary)"
-                      strokeWidth={2}
+                      strokeWidth={2.25}
                       dot={false}
+                      activeDot={{ r: 5 }}
                       name="Top weight"
+                      isAnimationActive
+                      animationDuration={650}
+                      animationEasing="ease-out"
                     />
                     <Line
                       type="monotone"
                       dataKey="est1RM"
                       stroke="var(--chart-4)"
-                      strokeWidth={2}
+                      strokeWidth={2.25}
                       dot={false}
+                      activeDot={{ r: 5 }}
                       name="Est. 1RM"
+                      isAnimationActive
+                      animationDuration={650}
+                      animationEasing="ease-out"
+                      animationBegin={100}
                     />
                   </LineChart>
                 </ResponsiveContainer>

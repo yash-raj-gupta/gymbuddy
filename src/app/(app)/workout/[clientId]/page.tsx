@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Plus, Trash2, Check, Search, Flag } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -205,8 +206,17 @@ export default function ActiveWorkoutPage() {
 
       <RestTimer />
 
+      <AnimatePresence initial={false}>
       {groups.map((g) => (
-        <Card key={g.exerciseId}>
+        <motion.div
+          key={g.exerciseId}
+          layout
+          initial={{ opacity: 0, y: 14, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -8, scale: 0.98 }}
+          transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+        >
+        <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-lg sm:text-xl lg:text-2xl">
               {g.name}
@@ -221,9 +231,15 @@ export default function ActiveWorkoutPage() {
               <span className="text-center">Done</span>
               <span />
             </div>
+            <AnimatePresence initial={false}>
             {g.sets.map((s, i) => (
-              <div
+              <motion.div
                 key={s.id}
+                layout
+                initial={{ opacity: 0, height: 0, y: -6 }}
+                animate={{ opacity: 1, height: "auto", y: 0 }}
+                exit={{ opacity: 0, height: 0, x: -24 }}
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
                 className="grid grid-cols-[1.25rem_1fr_1fr_3.25rem_2.75rem_1.75rem] items-center gap-2"
               >
                 <span className="text-base font-medium text-muted-foreground">
@@ -280,8 +296,9 @@ export default function ActiveWorkoutPage() {
                 >
                   <Trash2 className="size-4" />
                 </button>
-              </div>
+              </motion.div>
             ))}
+            </AnimatePresence>
             <Button
               variant="outline"
               size="sm"
@@ -292,7 +309,9 @@ export default function ActiveWorkoutPage() {
             </Button>
           </CardContent>
         </Card>
+        </motion.div>
       ))}
+      </AnimatePresence>
 
       <AddExerciseDialog onPick={addExercise} />
     </main>
