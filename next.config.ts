@@ -35,6 +35,11 @@ const nextConfig: NextConfig = {
   // Pin the workspace root — projects/ has stray lockfiles above this dir.
   turbopack: { root: __dirname },
   async headers() {
+    // Security headers only in production. The CSP's
+    // `upgrade-insecure-requests` upgrades subresource fetches to HTTPS;
+    // Chrome exempts localhost, Safari doesn't — so on `pnpm dev` Safari
+    // would 502 the CSS bundle and the page renders unstyled.
+    if (process.env.NODE_ENV !== "production") return [];
     return [{ source: "/(.*)", headers: securityHeaders }];
   },
 };
