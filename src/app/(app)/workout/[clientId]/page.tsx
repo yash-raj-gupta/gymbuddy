@@ -142,8 +142,16 @@ export default function ActiveWorkoutPage() {
 
   if (loading) {
     return (
-      <main className="mx-auto max-w-3xl px-4 py-10 text-sm text-muted-foreground">
-        Loading workout…
+      <main className="gb-page-in mx-auto max-w-3xl space-y-4 px-4 py-5 pb-28">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1.5">
+            <div className="gb-skeleton h-6 w-40" />
+            <div className="gb-skeleton h-3 w-28" />
+          </div>
+          <div className="gb-skeleton h-9 w-24" />
+        </div>
+        <div className="gb-skeleton h-28 w-full rounded-xl" />
+        <div className="gb-skeleton h-40 w-full rounded-xl" />
       </main>
     );
   }
@@ -170,11 +178,13 @@ export default function ActiveWorkoutPage() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl space-y-4 px-4 py-5 pb-28">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold">Active workout</h1>
-          <p className="text-xs text-muted-foreground">
+    <main className="gb-page-in mx-auto max-w-3xl space-y-4 px-4 py-5 pb-28">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">
+            Active workout
+          </h1>
+          <p className="text-sm text-muted-foreground sm:text-base lg:text-lg">
             Started{" "}
             {new Date(workout.startedAt).toLocaleTimeString("en-IN", {
               hour: "2-digit",
@@ -182,7 +192,12 @@ export default function ActiveWorkoutPage() {
             })}
           </p>
         </div>
-        <Button onClick={finish} disabled={finishing} className="gap-2">
+        <Button
+          onClick={finish}
+          disabled={finishing}
+          size="lg"
+          className="shrink-0 gap-2"
+        >
           <Flag className="size-4" />
           {finishing ? "Saving…" : "Finish"}
         </Button>
@@ -193,10 +208,12 @@ export default function ActiveWorkoutPage() {
       {groups.map((g) => (
         <Card key={g.exerciseId}>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">{g.name}</CardTitle>
+            <CardTitle className="text-lg sm:text-xl lg:text-2xl">
+              {g.name}
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="grid grid-cols-[1.25rem_1fr_1fr_3rem_2.5rem_1.75rem] items-center gap-2 text-xs text-muted-foreground">
+          <CardContent className="space-y-2.5">
+            <div className="grid grid-cols-[1.25rem_1fr_1fr_3.25rem_2.75rem_1.75rem] items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
               <span>#</span>
               <span>kg</span>
               <span>Reps</span>
@@ -207,9 +224,11 @@ export default function ActiveWorkoutPage() {
             {g.sets.map((s, i) => (
               <div
                 key={s.id}
-                className="grid grid-cols-[1.25rem_1fr_1fr_3rem_2.5rem_1.75rem] items-center gap-2"
+                className="grid grid-cols-[1.25rem_1fr_1fr_3.25rem_2.75rem_1.75rem] items-center gap-2"
               >
-                <span className="text-sm text-muted-foreground">{i + 1}</span>
+                <span className="text-base font-medium text-muted-foreground">
+                  {i + 1}
+                </span>
                 <Input
                   type="number"
                   inputMode="decimal"
@@ -217,7 +236,7 @@ export default function ActiveWorkoutPage() {
                   onChange={(e) =>
                     patchSet(s.id, { weight: Number(e.target.value) || 0 })
                   }
-                  className="h-9"
+                  className="h-11 text-center text-base tabular-nums"
                 />
                 <Input
                   type="number"
@@ -226,7 +245,7 @@ export default function ActiveWorkoutPage() {
                   onChange={(e) =>
                     patchSet(s.id, { reps: Number(e.target.value) || 0 })
                   }
-                  className="h-9"
+                  className="h-11 text-center text-base tabular-nums"
                 />
                 <Input
                   type="number"
@@ -241,18 +260,18 @@ export default function ActiveWorkoutPage() {
                       rpe: e.target.value ? Number(e.target.value) : null,
                     })
                   }
-                  className="h-9 px-1 text-center"
+                  className="h-11 px-1 text-center text-base"
                 />
                 <button
                   onClick={() => patchSet(s.id, { done: !s.done })}
                   aria-label="Toggle set done"
-                  className={`mx-auto flex size-7 items-center justify-center rounded-md border ${
+                  className={`mx-auto flex size-9 items-center justify-center rounded-lg border transition-colors ${
                     s.done
                       ? "border-primary bg-primary text-primary-foreground"
-                      : "border-input"
+                      : "border-input hover:border-primary/40"
                   }`}
                 >
-                  {s.done && <Check className="size-4" />}
+                  {s.done && <Check className="size-5" />}
                 </button>
                 <button
                   onClick={() => deleteSet(s.id)}
@@ -288,12 +307,15 @@ function AddExerciseDialog({
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [list, setList] = useState<Exercise[]>([]);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!open) return;
+    setLoading(true);
     listExercises(q || undefined)
       .then(setList)
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [open, q]);
 
   return (
@@ -318,26 +340,40 @@ function AddExerciseDialog({
           />
         </div>
         <div className="max-h-[55dvh] space-y-1 overflow-y-auto">
-          {list.map((ex) => (
-            <button
-              key={ex.id}
-              onClick={() => {
-                onPick(ex);
-                setOpen(false);
-                setQ("");
-              }}
-              className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-muted"
-            >
-              <span>{ex.name}</span>
-              <span className="text-xs text-muted-foreground">
-                {ex.muscleGroup}
-              </span>
-            </button>
-          ))}
-          {list.length === 0 && (
-            <p className="py-6 text-center text-sm text-muted-foreground">
-              No matches.
-            </p>
+          {loading && list.length === 0 ? (
+            Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="flex items-center justify-between rounded-md px-3 py-2"
+              >
+                <span className="gb-skeleton h-4 w-40" />
+                <span className="gb-skeleton h-3 w-12" />
+              </div>
+            ))
+          ) : (
+            <>
+              {list.map((ex) => (
+                <button
+                  key={ex.id}
+                  onClick={() => {
+                    onPick(ex);
+                    setOpen(false);
+                    setQ("");
+                  }}
+                  className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
+                >
+                  <span>{ex.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {ex.muscleGroup}
+                  </span>
+                </button>
+              ))}
+              {!loading && list.length === 0 && (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  No matches.
+                </p>
+              )}
+            </>
           )}
         </div>
       </DialogContent>

@@ -115,7 +115,7 @@ export function ProgressView({ exercises }: { exercises: Opt[] }) {
             </CardHeader>
             <CardContent className="h-64">
               {loading ? (
-                <p className="text-sm text-muted-foreground">Loading…</p>
+                <div className="gb-skeleton size-full rounded-md" />
               ) : points.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   No finished sets for this exercise yet.

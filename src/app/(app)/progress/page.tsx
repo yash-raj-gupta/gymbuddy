@@ -29,8 +29,10 @@ export default async function ProgressPage() {
   return (
     <div className="min-h-dvh pb-20 sm:pb-0">
       <AppNav />
-      <main className="mx-auto max-w-3xl space-y-5 px-4 py-6">
-        <h1 className="text-2xl font-bold tracking-tight">Progress &amp; PRs</h1>
+      <main className="gb-page-in mx-auto max-w-3xl space-y-5 px-4 py-6">
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">
+          Progress &amp; PRs
+        </h1>
         <ProgressView exercises={exercises} />
       </main>
     </div>

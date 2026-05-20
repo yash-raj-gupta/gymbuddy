@@ -82,7 +82,7 @@ export function ParallaxHero() {
         ref={fore}
         className="mx-auto w-full max-w-3xl px-6 py-14 text-center will-change-transform"
       >
-        <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-background/60 px-4 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur">
+        <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-background/60 px-4 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur sm:text-sm lg:text-base">
           <span className="size-1.5 rounded-full bg-primary" />
           Offline-first · No bloat · ₹0 to start
         </span>
@@ -92,7 +92,7 @@ export function ParallaxHero() {
             Beat last week.
           </span>
         </h1>
-        <p className="mx-auto mt-6 max-w-xl text-balance text-lg text-muted-foreground">
+        <p className="mx-auto mt-6 max-w-xl text-balance text-lg text-muted-foreground sm:text-xl">
           The workout tracker for people who train a real split. Every set
           prefills from last session — progressive overload is just showing up
           and beating the number.
@@ -108,7 +108,7 @@ export function ParallaxHero() {
             See pricing
           </Link>
         </div>
-        <p className="mt-6 animate-pulse text-xs text-muted-foreground">
+        <p className="mt-6 animate-pulse text-xs text-muted-foreground sm:text-sm lg:text-base">
           ↓ scroll
         </p>
       </div>

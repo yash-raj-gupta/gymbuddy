@@ -39,13 +39,13 @@ export default async function DashboardPage() {
   return (
     <div className="min-h-dvh pb-20 sm:pb-0">
       <AppNav />
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-6">
+      <main className="gb-page-in mx-auto max-w-3xl space-y-6 px-4 py-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">
               Welcome back
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground sm:text-base lg:text-lg">
               {user.email} ·{" "}
               <Badge variant={isPro(user.plan) ? "default" : "secondary"}>
                 {user.plan}
@@ -58,13 +58,15 @@ export default async function DashboardPage() {
 
         <section className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Recent workouts</h2>
+            <h2 className="text-lg font-semibold sm:text-xl lg:text-2xl">
+              Recent workouts
+            </h2>
             {workouts.length > 0 && <ExportButton />}
           </div>
 
           {workouts.length === 0 ? (
             <Card>
-              <CardContent className="py-10 text-center text-sm text-muted-foreground">
+              <CardContent className="py-10 text-center text-sm text-muted-foreground sm:text-base lg:text-lg">
                 No workouts yet. Hit{" "}
                 <span className="font-medium text-foreground">
                   Start workout
@@ -73,7 +75,7 @@ export default async function DashboardPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-3">
+            <div className="gb-stagger space-y-3">
               {workouts.map((w) => {
                 const exercises = new Set(w.sets.map((s) => s.exerciseId));
                 const volume = w.sets
@@ -83,7 +85,7 @@ export default async function DashboardPage() {
                   <Link key={w.id} href={`/history/${w.id}`} className="block">
                     <Card className="transition-colors hover:border-primary/50 hover:bg-muted/40">
                       <CardHeader className="pb-2">
-                        <CardTitle className="flex items-center justify-between text-base">
+                        <CardTitle className="flex items-center justify-between text-base sm:text-lg lg:text-xl">
                           <span>
                             {new Date(w.startedAt).toLocaleDateString("en-IN", {
                               weekday: "short",
@@ -91,12 +93,12 @@ export default async function DashboardPage() {
                               month: "short",
                             })}
                           </span>
-                          <span className="text-sm font-normal text-muted-foreground">
+                          <span className="text-sm font-normal text-muted-foreground sm:text-base">
                             {exercises.size} exercises · {w.sets.length} sets
                           </span>
                         </CardTitle>
                       </CardHeader>
-                      <CardContent className="pt-0 text-sm text-muted-foreground">
+                      <CardContent className="pt-0 text-sm text-muted-foreground sm:text-base lg:text-lg">
                         Volume:{" "}
                         {Math.round(volume).toLocaleString("en-IN")} kg·reps
                         {w.note ? ` · ${w.note}` : ""}

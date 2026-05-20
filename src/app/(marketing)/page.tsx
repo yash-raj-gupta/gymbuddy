@@ -133,12 +133,14 @@ export default function LandingPage() {
       <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-3.5">
           <Link href="/" className="flex items-center gap-2">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <Dumbbell className="size-4" />
+            <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground sm:size-9 lg:size-10">
+              <Dumbbell className="size-4 sm:size-5" />
             </span>
-            <span className="text-lg font-bold tracking-tight">GymBuddy</span>
+            <span className="text-lg font-bold tracking-tight sm:text-xl lg:text-2xl">
+              GymBuddy
+            </span>
           </Link>
-          <nav className="flex items-center gap-2 sm:gap-3 text-sm">
+          <nav className="flex items-center gap-2 text-sm sm:gap-3 sm:text-base lg:text-lg">
             <Link
               href="/pricing"
               className="hidden px-2 text-muted-foreground hover:text-foreground sm:block"
@@ -155,7 +157,7 @@ export default function LandingPage() {
             <ThemeToggle />
             <Link
               href="/sign-up"
-              className={buttonVariants({ size: "sm", className: "shadow-sm" })}
+              className={buttonVariants({ size: "base", className: "shadow-sm" })}
             >
               Start free
             </Link>
@@ -177,7 +179,7 @@ export default function LandingPage() {
               workout, beat the number you see prefilled. That&rsquo;s the
               product.
             </p>
-            <ul className="space-y-2 text-sm">
+            <ul className="space-y-2 text-sm sm:text-base lg:text-lg">
               {[
                 "Last session's numbers, prefilled",
                 "Offline-first — never lose a set",
@@ -216,8 +218,12 @@ export default function LandingPage() {
                 <div className="mb-3 flex size-9 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
                   {s.n}
                 </div>
-                <h3 className="font-semibold">{s.t}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">{s.d}</p>
+                <h3 className="text-base font-semibold sm:text-lg lg:text-xl">
+                  {s.t}
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground sm:text-base lg:text-lg">
+                  {s.d}
+                </p>
               </div>
             </Reveal>
           ))}
@@ -235,8 +241,10 @@ export default function LandingPage() {
                   <div className="mb-3 flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary transition-transform group-hover:scale-105">
                     <Icon className="size-5" />
                   </div>
-                  <h3 className="font-semibold">{f.title}</h3>
-                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                  <h3 className="text-base font-semibold sm:text-lg lg:text-xl">
+                    {f.title}
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground sm:text-base lg:text-lg">
                     {f.body}
                   </p>
                 </div>
@@ -256,7 +264,7 @@ export default function LandingPage() {
           ].map(([big, small]) => (
             <Reveal key={big}>
               <p className="text-2xl font-bold sm:text-3xl">{big}</p>
-              <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+              <p className="mt-1 text-xs text-muted-foreground sm:text-sm lg:text-base">
                 {small}
               </p>
             </Reveal>
@@ -273,8 +281,12 @@ export default function LandingPage() {
           {faqs.map((f, i) => (
             <Reveal key={f.q} delay={i * 70}>
               <div className="rounded-xl border bg-card p-5">
-                <h3 className="font-semibold">{f.q}</h3>
-                <p className="mt-1.5 text-sm text-muted-foreground">{f.a}</p>
+                <h3 className="text-base font-semibold sm:text-lg lg:text-xl">
+                  {f.q}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground sm:text-base lg:text-lg">
+                  {f.a}
+                </p>
               </div>
             </Reveal>
           ))}
@@ -289,7 +301,7 @@ export default function LandingPage() {
             <h2 className="text-balance text-3xl font-bold sm:text-4xl">
               Stop guessing your weights.
             </h2>
-            <p className="mx-auto mt-3 max-w-md text-sm opacity-90">
+            <p className="mx-auto mt-3 max-w-md text-sm opacity-90 sm:text-base lg:text-lg">
               Log today&rsquo;s session, and next week the app tells you exactly
               what to beat.
             </p>

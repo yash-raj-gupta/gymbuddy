@@ -36,35 +36,37 @@ export default async function RoutinesPage() {
   return (
     <div className="min-h-dvh pb-20 sm:pb-0">
       <AppNav />
-      <main className="mx-auto max-w-3xl space-y-5 px-4 py-6">
+      <main className="gb-page-in mx-auto max-w-3xl space-y-5 px-4 py-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold tracking-tight">Routines</h1>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">
+            Routines
+          </h1>
           <CreateRoutineButton atLimit={atLimit} />
         </div>
 
         {!isPro(user.plan) && (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground sm:text-sm lg:text-base">
             Free plan: 1 routine. Pro unlocks unlimited.
           </p>
         )}
 
         {routines.length === 0 ? (
           <Card>
-            <CardContent className="py-10 text-center text-sm text-muted-foreground">
+            <CardContent className="py-10 text-center text-sm text-muted-foreground sm:text-base lg:text-lg">
               No routines yet. Create one to start a workout in one tap.
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-3">
+          <div className="gb-stagger space-y-3">
             {routines.map((r) => (
               <Card key={r.id}>
                 <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center justify-between text-base">
+                  <CardTitle className="flex items-center justify-between text-base sm:text-lg lg:text-xl">
                     {r.name}
                     <DeleteRoutineButton id={r.id} />
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="pt-0 text-sm text-muted-foreground">
+                <CardContent className="pt-0 text-sm text-muted-foreground sm:text-base lg:text-lg">
                   {r.items.map((it) => it.exercise.name).join(" · ")}
                 </CardContent>
               </Card>
