@@ -2,7 +2,14 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Plus, Trash2, Check, Search, Flag } from "lucide-react";
+import {
+  Plus,
+  Minus,
+  Trash2,
+  Check,
+  Search,
+  Flag,
+} from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -20,7 +27,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { RestTimer } from "@/components/rest-timer";
+import {
+  RestTimer,
+  RestTimerProvider,
+  useRestTimer,
+} from "@/components/rest-timer";
 import {
   getLocalWorkout,
   saveLocalWorkout,
@@ -33,8 +44,17 @@ import { getPrefillSets, syncOfflineWorkout } from "@/server/actions/workouts";
 type Exercise = Awaited<ReturnType<typeof listExercises>>[number];
 
 export default function ActiveWorkoutPage() {
+  return (
+    <RestTimerProvider>
+      <WorkoutBody />
+    </RestTimerProvider>
+  );
+}
+
+function WorkoutBody() {
   const { clientId } = useParams<{ clientId: string }>();
   const router = useRouter();
+  const restTimer = useRestTimer();
   const [workout, setWorkout] = useState<LocalWorkout | null>(null);
   const [loading, setLoading] = useState(true);
   const [finishing, setFinishing] = useState(false);
@@ -52,6 +72,9 @@ export default function ActiveWorkoutPage() {
 
   function patchSet(id: string, patch: Partial<LocalSet>) {
     if (!workout) return;
+    const prev = workout.sets.find((s) => s.id === id);
+    // Auto-start rest timer the moment a set is flipped to done.
+    if (prev && !prev.done && patch.done === true) restTimer.start();
     void persist({
       ...workout,
       sets: workout.sets.map((s) => (s.id === id ? { ...s, ...patch } : s)),
@@ -143,13 +166,10 @@ export default function ActiveWorkoutPage() {
 
   if (loading) {
     return (
-      <main className="gb-page-in mx-auto max-w-3xl space-y-4 px-4 py-5 pb-28">
-        <div className="flex items-center justify-between">
-          <div className="space-y-1.5">
-            <div className="gb-skeleton h-6 w-40" />
-            <div className="gb-skeleton h-3 w-28" />
-          </div>
-          <div className="gb-skeleton h-9 w-24" />
+      <main className="gb-page-in mx-auto max-w-3xl space-y-4 px-4 py-5 pb-36">
+        <div className="space-y-1.5">
+          <div className="gb-skeleton h-6 w-40" />
+          <div className="gb-skeleton h-3 w-28" />
         </div>
         <div className="gb-skeleton h-28 w-full rounded-xl" />
         <div className="gb-skeleton h-40 w-full rounded-xl" />
@@ -178,151 +198,264 @@ export default function ActiveWorkoutPage() {
     g.sets.push(s);
   }
 
+  const doneCount = workout.sets.filter((s) => s.done).length;
+  const totalVolume = workout.sets
+    .filter((s) => s.done)
+    .reduce((sum, s) => sum + s.weight * s.reps, 0);
+
   return (
-    <main className="gb-page-in mx-auto max-w-3xl space-y-4 px-4 py-5 pb-28">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">
-            Active workout
-          </h1>
-          <p className="text-sm text-muted-foreground sm:text-base lg:text-lg">
-            Started{" "}
-            {new Date(workout.startedAt).toLocaleTimeString("en-IN", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </p>
-        </div>
-        <Button
-          onClick={finish}
-          disabled={finishing}
-          size="lg"
-          className="shrink-0 gap-2"
-        >
-          <Flag className="size-4" />
-          {finishing ? "Saving…" : "Finish"}
-        </Button>
+    <main className="gb-page-in mx-auto max-w-3xl space-y-4 px-4 py-5 pb-36">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">
+          Active workout
+        </h1>
+        <p className="text-sm text-muted-foreground sm:text-base lg:text-lg">
+          Started{" "}
+          {new Date(workout.startedAt).toLocaleTimeString("en-IN", {
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </p>
       </div>
 
-      <RestTimer />
+      {/* Sticky rest timer — always visible while logging. */}
+      <div className="sticky top-2 z-20 -mx-1">
+        <RestTimer />
+      </div>
 
       <AnimatePresence initial={false}>
-      {groups.map((g) => (
-        <motion.div
-          key={g.exerciseId}
-          layout
-          initial={{ opacity: 0, y: 14, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -8, scale: 0.98 }}
-          transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
-        >
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg sm:text-xl lg:text-2xl">
-              {g.name}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2.5">
-            <div className="grid grid-cols-[1.25rem_1fr_1fr_3.25rem_2.75rem_1.75rem] items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              <span>#</span>
-              <span>kg</span>
-              <span>Reps</span>
-              <span className="text-center">RPE</span>
-              <span className="text-center">Done</span>
-              <span />
-            </div>
-            <AnimatePresence initial={false}>
-            {g.sets.map((s, i) => (
-              <motion.div
-                key={s.id}
-                layout
-                initial={{ opacity: 0, height: 0, y: -6 }}
-                animate={{ opacity: 1, height: "auto", y: 0 }}
-                exit={{ opacity: 0, height: 0, x: -24 }}
-                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                className="grid grid-cols-[1.25rem_1fr_1fr_3.25rem_2.75rem_1.75rem] items-center gap-2"
-              >
-                <span className="text-base font-medium text-muted-foreground">
-                  {i + 1}
-                </span>
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  value={s.weight || ""}
-                  onChange={(e) =>
-                    patchSet(s.id, { weight: Number(e.target.value) || 0 })
-                  }
-                  className="h-11 text-center text-base tabular-nums"
-                />
-                <Input
-                  type="number"
-                  inputMode="numeric"
-                  value={s.reps || ""}
-                  onChange={(e) =>
-                    patchSet(s.id, { reps: Number(e.target.value) || 0 })
-                  }
-                  className="h-11 text-center text-base tabular-nums"
-                />
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  step="0.5"
-                  min="1"
-                  max="10"
-                  placeholder="–"
-                  value={s.rpe ?? ""}
-                  onChange={(e) =>
-                    patchSet(s.id, {
-                      rpe: e.target.value ? Number(e.target.value) : null,
-                    })
-                  }
-                  className="h-11 px-1 text-center text-base"
-                />
-                <button
-                  onClick={() => patchSet(s.id, { done: !s.done })}
-                  aria-label="Toggle set done"
-                  className={`mx-auto flex size-9 items-center justify-center rounded-lg border transition-colors ${
-                    s.done
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-input hover:border-primary/40"
-                  }`}
+        {groups.map((g) => (
+          <motion.div
+            key={g.exerciseId}
+            layout
+            initial={{ opacity: 0, y: 14, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.98 }}
+            transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg sm:text-xl lg:text-2xl">
+                  {g.name}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <AnimatePresence initial={false}>
+                  {g.sets.map((s, i) => (
+                    <motion.div
+                      key={s.id}
+                      layout
+                      initial={{ opacity: 0, height: 0, y: -6 }}
+                      animate={{ opacity: 1, height: "auto", y: 0 }}
+                      exit={{ opacity: 0, height: 0, x: -24 }}
+                      transition={{
+                        duration: 0.22,
+                        ease: [0.22, 1, 0.36, 1],
+                      }}
+                    >
+                      <SetTile
+                        index={i}
+                        set={s}
+                        onPatch={(p) => patchSet(s.id, p)}
+                        onDelete={() => deleteSet(s.id)}
+                      />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-1"
+                  onClick={() => addSet(g.exerciseId)}
                 >
-                  {s.done && <Check className="size-5" />}
-                </button>
-                <button
-                  onClick={() => deleteSet(s.id)}
-                  aria-label="Delete set"
-                  className="text-muted-foreground hover:text-destructive"
-                >
-                  <Trash2 className="size-4" />
-                </button>
-              </motion.div>
-            ))}
-            </AnimatePresence>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full gap-1"
-              onClick={() => addSet(g.exerciseId)}
-            >
-              <Plus className="size-4" /> Add set
-            </Button>
-          </CardContent>
-        </Card>
-        </motion.div>
-      ))}
+                  <Plus className="size-4" /> Add set
+                </Button>
+              </CardContent>
+            </Card>
+          </motion.div>
+        ))}
       </AnimatePresence>
 
       <AddExerciseDialog onPick={addExercise} />
+
+      {/* Fixed Finish bar. Safe-area-aware on iOS notch devices. */}
+      <div
+        className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 backdrop-blur"
+        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      >
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
+          <div className="text-sm leading-tight text-muted-foreground sm:text-base">
+            <span className="font-semibold text-foreground tabular-nums">
+              {doneCount}
+            </span>{" "}
+            sets ·{" "}
+            <span className="font-semibold text-foreground tabular-nums">
+              {Math.round(totalVolume).toLocaleString("en-IN")}
+            </span>{" "}
+            kg
+          </div>
+          <Button
+            onClick={finish}
+            disabled={finishing}
+            size="lg"
+            className="min-w-[8.5rem] gap-2"
+          >
+            <Flag className="size-4" />
+            {finishing ? "Saving…" : "Finish"}
+          </Button>
+        </div>
+      </div>
     </main>
   );
 }
 
-function AddExerciseDialog({
-  onPick,
+function SetTile({
+  index,
+  set,
+  onPatch,
+  onDelete,
 }: {
-  onPick: (ex: Exercise) => void;
+  index: number;
+  set: LocalSet;
+  onPatch: (p: Partial<LocalSet>) => void;
+  onDelete: () => void;
 }) {
+  return (
+    <div
+      className={`rounded-lg border p-2.5 transition-colors ${
+        set.done ? "border-primary/40 bg-primary/5" : "bg-background"
+      }`}
+    >
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Set {index + 1}
+        </span>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => onPatch({ done: !set.done })}
+            aria-label={set.done ? "Mark set undone" : "Mark set done"}
+            className={`flex h-9 items-center gap-1.5 rounded-md border px-2.5 text-sm font-medium transition-colors ${
+              set.done
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-input hover:border-primary/40"
+            }`}
+          >
+            <Check className="size-4" />
+            {set.done ? "Done" : "Mark"}
+          </button>
+          <button
+            onClick={onDelete}
+            aria-label="Delete set"
+            className="flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-destructive"
+          >
+            <Trash2 className="size-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <Stepper
+          label="kg"
+          value={set.weight}
+          step={2.5}
+          inputMode="decimal"
+          ariaLabel={`Set ${index + 1} weight`}
+          onChange={(v) => onPatch({ weight: v })}
+        />
+        <Stepper
+          label="Reps"
+          value={set.reps}
+          step={1}
+          min={0}
+          inputMode="numeric"
+          ariaLabel={`Set ${index + 1} reps`}
+          onChange={(v) => onPatch({ reps: Math.max(0, Math.round(v)) })}
+        />
+      </div>
+
+      <div className="mt-2 flex items-center gap-2">
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          RPE
+        </span>
+        <Input
+          type="number"
+          inputMode="decimal"
+          step="0.5"
+          min="1"
+          max="10"
+          placeholder="optional"
+          value={set.rpe ?? ""}
+          onChange={(e) =>
+            onPatch({
+              rpe: e.target.value ? Number(e.target.value) : null,
+            })
+          }
+          aria-label={`Set ${index + 1} RPE`}
+          className="h-8 max-w-24 text-center text-sm"
+        />
+      </div>
+    </div>
+  );
+}
+
+function Stepper({
+  label,
+  value,
+  step,
+  min = 0,
+  inputMode,
+  ariaLabel,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  step: number;
+  min?: number;
+  inputMode: "decimal" | "numeric";
+  ariaLabel: string;
+  onChange: (v: number) => void;
+}) {
+  function bump(delta: number) {
+    const next = Math.max(min, Math.round((value + delta) * 100) / 100);
+    onChange(next);
+  }
+  return (
+    <div className="flex items-stretch overflow-hidden rounded-md border bg-background">
+      <button
+        type="button"
+        onClick={() => bump(-step)}
+        aria-label={`Decrease ${ariaLabel} by ${step}`}
+        className="flex size-11 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-muted active:bg-muted/80 disabled:opacity-40"
+        disabled={value <= min}
+      >
+        <Minus className="size-4" />
+      </button>
+      <div className="flex flex-1 flex-col items-center justify-center px-1">
+        <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+          {label}
+        </span>
+        <input
+          type="number"
+          inputMode={inputMode}
+          value={value || ""}
+          onChange={(e) => onChange(Number(e.target.value) || 0)}
+          aria-label={ariaLabel}
+          className="w-full bg-transparent text-center text-lg font-semibold tabular-nums outline-none"
+        />
+      </div>
+      <button
+        type="button"
+        onClick={() => bump(step)}
+        aria-label={`Increase ${ariaLabel} by ${step}`}
+        className="flex size-11 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-muted active:bg-muted/80"
+      >
+        <Plus className="size-4" />
+      </button>
+    </div>
+  );
+}
+
+function AddExerciseDialog({ onPick }: { onPick: (ex: Exercise) => void }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [list, setList] = useState<Exercise[]>([]);
