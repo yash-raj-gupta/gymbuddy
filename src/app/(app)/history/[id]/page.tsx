@@ -54,35 +54,36 @@ export default async function WorkoutDetailPage({
   return (
     <div className="min-h-dvh pb-20 sm:pb-0">
       <AppNav />
-      <main className="mx-auto max-w-3xl space-y-5 px-4 py-6">
+      <main className="gb-page-in mx-auto max-w-3xl space-y-5 px-4 py-6">
         <Link
           href="/dashboard"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground lg:text-base"
         >
           <ArrowLeft className="size-4" /> Back
         </Link>
 
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">
             {new Date(w.startedAt).toLocaleDateString("en-IN", {
               weekday: "long",
               day: "numeric",
               month: "long",
             })}
           </h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground sm:text-base lg:text-lg">
             {groups.length} exercises · {doneSets.length} sets ·{" "}
             {Math.round(volume).toLocaleString("en-IN")} kg·reps
             {durationMin ? ` · ${durationMin} min` : ""}
           </p>
           {w.note && (
-            <p className="mt-2 rounded-md bg-muted px-3 py-2 text-sm">
+            <p className="mt-2 rounded-md bg-muted px-3 py-2 text-sm sm:text-base lg:text-lg">
               {w.note}
             </p>
           )}
         </div>
 
-        {groups.map((g) => {
+        <div className="gb-stagger space-y-5">
+          {groups.map((g) => {
           const top = Math.max(...g.sets.map((s) => s.weight), 0);
           const best1RM = Math.max(
             ...g.sets
@@ -93,9 +94,9 @@ export default async function WorkoutDetailPage({
           return (
             <Card key={g.name}>
               <CardHeader className="pb-2">
-                <CardTitle className="flex items-center justify-between text-base">
+                <CardTitle className="flex items-center justify-between text-base sm:text-lg lg:text-xl">
                   <span>{g.name}</span>
-                  <span className="text-xs font-normal text-muted-foreground">
+                  <span className="text-xs font-normal text-muted-foreground sm:text-sm lg:text-base">
                     top {top}kg · e1RM {best1RM}kg
                   </span>
                 </CardTitle>
@@ -104,7 +105,7 @@ export default async function WorkoutDetailPage({
                 {g.sets.map((s, i) => (
                   <div
                     key={s.id}
-                    className="flex items-center justify-between text-sm"
+                    className="flex items-center justify-between text-sm sm:text-base lg:text-lg"
                   >
                     <span className="text-muted-foreground">Set {i + 1}</span>
                     <span className="tabular-nums">
@@ -122,6 +123,7 @@ export default async function WorkoutDetailPage({
             </Card>
           );
         })}
+        </div>
       </main>
     </div>
   );

@@ -125,9 +125,20 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Fluid type: ~15px on phones → 17px on laptops. Scales spacing
+       only on the body text, not the design system root-rem. */
+    /* Smaller on phones, larger on laptops. ~14px → 20px across 360→1280. */
+    font-size: clamp(0.875rem, 0.6vw + 0.78rem, 1.25rem);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
   html {
     @apply font-sans;
+    scroll-behavior: smooth;
+  }
+  ::selection {
+    background-color: color-mix(in oklab, var(--primary) 35%, transparent);
   }
 }
 
@@ -160,13 +171,72 @@
 .gb-float {
   animation: gb-float 4s ease-in-out infinite;
 }
+@keyframes gb-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+@keyframes gb-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes gb-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+.gb-skeleton {
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--muted) 70%, transparent) 25%,
+    color-mix(in oklab, var(--muted-foreground) 14%, transparent) 50%,
+    color-mix(in oklab, var(--muted) 70%, transparent) 75%
+  );
+  background-size: 200% 100%;
+  animation: gb-shimmer 1.4s linear infinite;
+  border-radius: 0.5rem;
+}
+.gb-page-in {
+  animation: gb-page-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.gb-stagger > * {
+  opacity: 0;
+  animation: gb-fade-up 0.32s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.gb-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.gb-stagger > *:nth-child(2) { animation-delay: 60ms; }
+.gb-stagger > *:nth-child(3) { animation-delay: 120ms; }
+.gb-stagger > *:nth-child(4) { animation-delay: 180ms; }
+.gb-stagger > *:nth-child(5) { animation-delay: 240ms; }
+.gb-stagger > *:nth-child(6) { animation-delay: 300ms; }
+.gb-stagger > *:nth-child(n + 7) { animation-delay: 360ms; }
+
+button, [role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .gb-reveal,
-  .gb-reveal.gb-in {
+  .gb-reveal.gb-in,
+  .gb-page-in,
+  .gb-stagger > *,
+  .gb-skeleton {
     opacity: 1;
     animation: none;
   }
   .gb-float {
     animation: none;
+  }
+  html {
+    scroll-behavior: auto;
   }
 }

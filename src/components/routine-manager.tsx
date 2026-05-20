@@ -28,9 +28,15 @@ export function CreateRoutineButton({ atLimit }: { atLimit: boolean }) {
   const [all, setAll] = useState<Exercise[]>([]);
   const [picked, setPicked] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [loadingList, setLoadingList] = useState(false);
 
   useEffect(() => {
-    if (open) listExercises().then(setAll).catch(() => {});
+    if (!open) return;
+    setLoadingList(true);
+    listExercises()
+      .then(setAll)
+      .catch(() => {})
+      .finally(() => setLoadingList(false));
   }, [open]);
 
   function toggle(id: string) {
@@ -103,6 +109,16 @@ export function CreateRoutineButton({ atLimit }: { atLimit: boolean }) {
             />
           </div>
           <div className="max-h-[40dvh] space-y-1 overflow-y-auto rounded-md border p-1">
+            {loadingList && all.length === 0 &&
+              Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between rounded px-3 py-2"
+                >
+                  <span className="gb-skeleton h-4 w-40" />
+                  <span className="gb-skeleton h-3 w-12" />
+                </div>
+              ))}
             {filtered.map((e) => (
               <button
                 key={e.id}

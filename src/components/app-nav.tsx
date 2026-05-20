@@ -23,13 +23,16 @@ export function AppNav() {
     <>
       <header className="sticky top-0 z-30 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
-          <Link href="/dashboard" className="flex items-center gap-2 font-bold">
-            <Dumbbell className="size-5 text-primary" />
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-2 text-base font-bold sm:text-lg lg:text-xl"
+          >
+            <Dumbbell className="size-5 text-primary sm:size-6 lg:size-7" />
             GymBuddy
           </Link>
           <div className="flex items-center gap-3">
             {!online && (
-              <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+              <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400 sm:text-sm">
                 Offline
               </span>
             )}
@@ -69,7 +72,7 @@ export function AppNav() {
               key={l.href}
               href={l.href}
               className={cn(
-                "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
+                "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors lg:px-4 lg:py-2 lg:text-base",
                 active
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-muted",

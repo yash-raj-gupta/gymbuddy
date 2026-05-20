@@ -24,9 +24,11 @@ export default async function ExercisesPage() {
   return (
     <div className="min-h-dvh pb-20 sm:pb-0">
       <AppNav />
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-6">
+      <main className="gb-page-in mx-auto max-w-3xl space-y-6 px-4 py-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold tracking-tight">Exercise library</h1>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">
+            Exercise library
+          </h1>
           <AddCustomExercise />
         </div>
 
@@ -35,7 +37,7 @@ export default async function ExercisesPage() {
           if (items.length === 0) return null;
           return (
             <section key={mg} className="space-y-2">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground lg:text-base">
                 {mg}
               </h2>
               <Card>
@@ -43,7 +45,7 @@ export default async function ExercisesPage() {
                   {items.map((e) => (
                     <div
                       key={e.id}
-                      className="flex items-center justify-between px-4 py-2.5 text-sm"
+                      className="flex items-center justify-between px-4 py-2.5 text-sm sm:text-base lg:text-lg"
                     >
                       <span>{e.name}</span>
                       {e.isCustom && (
