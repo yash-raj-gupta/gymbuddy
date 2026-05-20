@@ -55,7 +55,8 @@ export function InstallPWA() {
         setEvt(null);
       }}
     >
-      <Download className="size-4" /> Install
+      <Download className="size-4" />
+      <span className="hidden sm:inline">Install</span>
     </Button>
   );
 }
