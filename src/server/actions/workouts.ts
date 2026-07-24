@@ -50,13 +50,10 @@ export async function startWorkout(raw: unknown) {
   return workout;
 }
 
-/** Last session's sets for an exercise — the progressive-overload prefill. */
-export async function getPrefillSets(exerciseIdRaw: string) {
-  const user = await requireAuth();
-  const exerciseId = z.string().min(1).max(40).parse(exerciseIdRaw);
+async function lastSetsFor(userId: string, exerciseId: string) {
   const lastWorkout = await db.workout.findFirst({
     where: {
-      userId: user.id,
+      userId,
       finishedAt: { not: null },
       sets: { some: { exerciseId } },
     },
@@ -66,6 +63,26 @@ export async function getPrefillSets(exerciseIdRaw: string) {
     },
   });
   return lastWorkout?.sets.map((s) => ({ reps: s.reps, weight: s.weight })) ?? [];
+}
+
+/** Last session's sets for an exercise — the progressive-overload prefill. */
+export async function getPrefillSets(exerciseIdRaw: string) {
+  const user = await requireAuth();
+  const exerciseId = z.string().min(1).max(40).parse(exerciseIdRaw);
+  return lastSetsFor(user.id, exerciseId);
+}
+
+/** Batched prefill for a routine's exercises, keyed by exerciseId. */
+export async function getPrefillMap(exerciseIdsRaw: unknown) {
+  const user = await requireAuth();
+  const ids = z.array(z.string().min(1).max(40)).max(50).parse(exerciseIdsRaw);
+  const entries = await Promise.all(
+    ids.map(async (id) => [id, await lastSetsFor(user.id, id)] as const),
+  );
+  return Object.fromEntries(entries) as Record<
+    string,
+    { reps: number; weight: number }[]
+  >;
 }
 
 const SetInput = z.object({

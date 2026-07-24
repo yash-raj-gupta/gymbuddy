@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { listRoutines } from "@/server/actions/routines";
-import { startWorkout } from "@/server/actions/workouts";
+import { getPrefillMap, startWorkout } from "@/server/actions/workouts";
 import { saveLocalWorkout, type LocalSet } from "@/lib/offline-store";
 
 type Routine = Awaited<ReturnType<typeof listRoutines>>[number];
@@ -41,17 +41,34 @@ export function StartWorkout() {
       globalThis.crypto?.randomUUID?.() ?? `w_${Date.now()}_${Math.random()}`;
     const chosen = routines.find((r) => r.id === routineId);
 
+    // Seed each routine exercise from the last finished session (progressive
+    // overload); offline or first-time exercises fall back to a single 0/0 set.
+    let prefill: Record<string, { reps: number; weight: number }[]> = {};
+    if (chosen) {
+      try {
+        prefill = await getPrefillMap(chosen.items.map((it) => it.exerciseId));
+      } catch {
+        /* offline — start from zero */
+      }
+    }
+
+    let order = 0;
     const sets: LocalSet[] = chosen
-      ? chosen.items.map((it, i) => ({
-          id: `${clientId}_${i}`,
-          exerciseId: it.exerciseId,
-          exerciseName: it.exercise.name,
-          muscleGroup: it.exercise.muscleGroup,
-          reps: 0,
-          weight: 0,
-          done: false,
-          order: i,
-        }))
+      ? chosen.items.flatMap((it, i) => {
+          const last = prefill[it.exerciseId] ?? [];
+          const base = last.length > 0 ? last : [{ reps: 0, weight: 0 }];
+          return base.map((p, j) => ({
+            id: `${clientId}_${i}_${j}`,
+            exerciseId: it.exerciseId,
+            exerciseName: it.exercise.name,
+            muscleGroup: it.exercise.muscleGroup,
+            reps: p.reps,
+            weight: p.weight,
+            prev: last[j] ?? null,
+            done: false,
+            order: order++,
+          }));
+        })
       : [];
 
     await saveLocalWorkout({

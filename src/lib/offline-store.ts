@@ -15,6 +15,8 @@ export type LocalSet = {
   rpe?: number | null;
   done: boolean;
   order: number;
+  /** Same-index set from the last finished session — progressive-overload reference. */
+  prev?: { reps: number; weight: number } | null;
 };
 
 export type LocalWorkout = {
@@ -59,6 +61,14 @@ export async function getPendingWorkouts(): Promise<LocalWorkout[]> {
   return all.filter((w) => !w.synced && w.finishedAt !== null);
 }
 
+export async function getInProgressWorkouts(): Promise<LocalWorkout[]> {
+  const db = await getDB();
+  const all = await db.getAll("workouts");
+  return all
+    .filter((w) => w.finishedAt === null)
+    .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+}
+
 export async function markSynced(clientId: string) {
   const db = await getDB();
   const w = await db.get("workouts", clientId);
@@ -68,4 +78,35 @@ export async function markSynced(clientId: string) {
 export async function deleteLocalWorkout(clientId: string) {
   const db = await getDB();
   await db.delete("workouts", clientId);
+}
+
+// Exercise catalogue cache — lets the in-workout picker work offline.
+export type CachedExercise = { id: string; name: string; muscleGroup: string };
+
+const EXERCISE_CACHE_KEY = "gb-exercise-cache-v1";
+
+export function cacheExercises(list: CachedExercise[]) {
+  try {
+    localStorage.setItem(
+      EXERCISE_CACHE_KEY,
+      JSON.stringify(
+        list.map((e) => ({
+          id: e.id,
+          name: e.name,
+          muscleGroup: e.muscleGroup,
+        })),
+      ),
+    );
+  } catch {
+    /* storage full/unavailable — cache is best-effort */
+  }
+}
+
+export function getCachedExercises(): CachedExercise[] {
+  try {
+    const raw = localStorage.getItem(EXERCISE_CACHE_KEY);
+    return raw ? (JSON.parse(raw) as CachedExercise[]) : [];
+  } catch {
+    return [];
+  }
 }

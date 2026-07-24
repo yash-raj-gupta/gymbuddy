@@ -2,8 +2,13 @@
 
 import { useEffect, useCallback } from "react";
 import { toast } from "sonner";
-import { getPendingWorkouts, markSynced } from "@/lib/offline-store";
+import {
+  cacheExercises,
+  getPendingWorkouts,
+  markSynced,
+} from "@/lib/offline-store";
 import { syncOfflineWorkout } from "@/server/actions/workouts";
+import { listExercises } from "@/server/actions/exercises";
 
 // Flushes finished-but-unsynced workouts to the server on mount and
 // whenever connectivity returns. Idempotent via clientId.
@@ -50,6 +55,15 @@ export function SyncManager() {
     window.addEventListener("online", onOnline);
     return () => window.removeEventListener("online", onOnline);
   }, [flush]);
+
+  // Pre-warm the exercise-catalogue cache so the in-workout picker
+  // works with no signal at the gym.
+  useEffect(() => {
+    if (typeof navigator !== "undefined" && !navigator.onLine) return;
+    listExercises()
+      .then(cacheExercises)
+      .catch(() => {});
+  }, []);
 
   return null;
 }

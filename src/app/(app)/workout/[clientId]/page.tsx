@@ -33,15 +33,18 @@ import {
   useRestTimer,
 } from "@/components/rest-timer";
 import {
+  cacheExercises,
+  getCachedExercises,
   getLocalWorkout,
   saveLocalWorkout,
+  type CachedExercise,
   type LocalWorkout,
   type LocalSet,
 } from "@/lib/offline-store";
 import { listExercises } from "@/server/actions/exercises";
 import { getPrefillSets, syncOfflineWorkout } from "@/server/actions/workouts";
 
-type Exercise = Awaited<ReturnType<typeof listExercises>>[number];
+type Exercise = CachedExercise;
 
 export default function ActiveWorkoutPage() {
   return (
@@ -121,6 +124,7 @@ function WorkoutBody() {
       muscleGroup: ex.muscleGroup,
       reps: p.reps,
       weight: p.weight,
+      prev: prefill[i] ?? null,
       done: false,
       order: workout.sets.length + i,
     }));
@@ -329,6 +333,11 @@ function SetTile({
       <div className="mb-2 flex items-center justify-between">
         <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Set {index + 1}
+          {set.prev && (
+            <span className="ml-2 normal-case tracking-normal tabular-nums">
+              Last: {set.prev.weight} kg × {set.prev.reps}
+            </span>
+          )}
         </span>
         <div className="flex items-center gap-1">
           <button
@@ -461,14 +470,24 @@ function AddExerciseDialog({ onPick }: { onPick: (ex: Exercise) => void }) {
   const [list, setList] = useState<Exercise[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // Fetch the full catalogue once per open and filter client-side — instant
+  // search, and the localStorage cache keeps the picker usable offline.
   useEffect(() => {
     if (!open) return;
     setLoading(true);
-    listExercises(q || undefined)
-      .then(setList)
-      .catch(() => {})
+    listExercises()
+      .then((l) => {
+        setList(l);
+        cacheExercises(l);
+      })
+      .catch(() => setList(getCachedExercises()))
       .finally(() => setLoading(false));
-  }, [open, q]);
+  }, [open]);
+
+  const needle = q.trim().toLowerCase();
+  const filtered = needle
+    ? list.filter((ex) => ex.name.toLowerCase().includes(needle))
+    : list;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -504,7 +523,7 @@ function AddExerciseDialog({ onPick }: { onPick: (ex: Exercise) => void }) {
             ))
           ) : (
             <>
-              {list.map((ex) => (
+              {filtered.map((ex) => (
                 <button
                   key={ex.id}
                   onClick={() => {
@@ -520,7 +539,7 @@ function AddExerciseDialog({ onPick }: { onPick: (ex: Exercise) => void }) {
                   </span>
                 </button>
               ))}
-              {!loading && list.length === 0 && (
+              {!loading && filtered.length === 0 && (
                 <p className="py-6 text-center text-sm text-muted-foreground">
                   No matches.
                 </p>

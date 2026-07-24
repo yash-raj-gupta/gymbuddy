@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { historyCutoff, isPro } from "@/lib/plan";
 import { AppNav } from "@/components/app-nav";
 import { StartWorkout } from "@/components/start-workout";
+import { ResumeWorkout } from "@/components/resume-workout";
 import { ExportButton } from "@/components/export-button";
 import { DashboardStats } from "@/components/dashboard-stats";
 import { getDashboardSummary } from "@/server/actions/dashboard";
@@ -58,6 +59,8 @@ export default async function DashboardPage() {
             </p>
           </div>
         </div>
+
+        <ResumeWorkout />
 
         <StartWorkout />
 
