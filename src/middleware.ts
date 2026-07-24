@@ -9,6 +9,7 @@ const isPublic = createRouteMatcher([
   "/pricing",
   "/legal(.*)",
   "/api/webhooks(.*)",
+  "/api/health",
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/robots.txt",

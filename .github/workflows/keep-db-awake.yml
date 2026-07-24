@@ -1,0 +1,51 @@
+name: Keep Supabase awake
+
+# Supabase free tier pauses a project after ~7 days of no DB activity.
+# This pings /api/health daily, which runs `SELECT 1` against Postgres.
+on:
+  schedule:
+    # 06:17 UTC daily. Off-the-hour on purpose: GitHub's scheduler is heavily
+    # backed up at :00 and can drop/delay those runs.
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: keep-db-awake
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping health endpoint
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+        run: |
+          set -uo pipefail
+
+          if [ -z "${APP_URL}" ]; then
+            echo "::error::Repo variable APP_URL is not set (Settings → Secrets and variables → Actions → Variables)."
+            exit 1
+          fi
+
+          url="${APP_URL%/}/api/health"
+
+          # A paused project takes a while to resume, so the first hit can fail
+          # or time out. Retry before calling it a failure.
+          for attempt in 1 2 3 4; do
+            code=$(curl -sS -o /tmp/health.json -w '%{http_code}' --max-time 60 "$url") || code=000
+            echo "attempt ${attempt}: HTTP ${code}"
+            cat /tmp/health.json 2>/dev/null || true
+            echo
+            if [ "$code" = "200" ]; then
+              echo "DB is awake."
+              exit 0
+            fi
+            sleep 30
+          done
+
+          echo "::error::${url} did not return 200 after 4 attempts."
+          exit 1
