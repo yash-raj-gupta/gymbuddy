@@ -1,7 +1,9 @@
 // GymBuddy service worker — caches the app shell so logging works offline.
 // gymbuddy-prd.md §4 feature 5.
-const CACHE = "gymbuddy-v1";
-const SHELL = ["/", "/dashboard", "/manifest.webmanifest"];
+const CACHE = "gymbuddy-v2";
+// Only unauthenticated URLs belong here: addAll() is all-or-nothing, and a
+// signed-out precache of an auth-gated page fails the whole install.
+const SHELL = ["/", "/manifest.webmanifest"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(
@@ -39,11 +41,15 @@ self.addEventListener("fetch", (e) => {
     e.respondWith(
       fetch(req)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(req, copy));
+          // Never cache an auth redirect or an error page — replaying either
+          // offline strands the app on a screen it can't navigate out of.
+          if (res.ok && !res.redirected && res.type === "basic") {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(req, copy));
+          }
           return res;
         })
-        .catch(() => caches.match(req).then((r) => r || caches.match("/dashboard"))),
+        .catch(() => caches.match(req).then((r) => r || caches.match("/"))),
     );
     return;
   }

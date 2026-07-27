@@ -18,7 +18,15 @@ const isPublic = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
-  if (!isPublic(req)) await auth.protect();
+  if (!isPublic(req)) {
+    // Send signed-out users to our own /sign-in page, never Clerk's hosted
+    // portal on *.accounts.dev. The manifest scope is "/", so an off-origin
+    // bounce at launch drops an installed PWA out of its own scope and it
+    // never gets back in — the standalone window just sits on a blank splash.
+    const signIn = new URL("/sign-in", req.nextUrl);
+    signIn.searchParams.set("redirect_url", req.nextUrl.href);
+    await auth.protect({ unauthenticatedUrl: signIn.toString() });
+  }
   return NextResponse.next();
 });
 
