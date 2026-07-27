@@ -46,6 +46,10 @@ export const viewport: Viewport = {
   themeColor: "#0a0a0a",
   width: "device-width",
   initialScale: 1,
+  // Standalone PWA: draw into the notch/gesture-bar area (body re-insets),
+  // and let the layout shrink for the keyboard instead of scrolling under it.
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({

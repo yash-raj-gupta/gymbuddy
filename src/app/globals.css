@@ -132,10 +132,18 @@
     line-height: 1.55;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    /* Pairs with viewport-fit: cover — keep content out of the rounded
+       corners and gesture areas. */
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
   }
   html {
     @apply font-sans;
     scroll-behavior: smooth;
+    /* Nothing may widen the layout viewport: one overflowing element makes an
+       installed PWA scale the whole page down to fit. `clip` rather than
+       `hidden` so the sticky app header still works. */
+    overflow-x: clip;
   }
   ::selection {
     background-color: color-mix(in oklab, var(--primary) 35%, transparent);
