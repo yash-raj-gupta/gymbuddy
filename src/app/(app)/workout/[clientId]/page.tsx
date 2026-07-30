@@ -1,51 +1,27 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import {
-  Plus,
-  Minus,
-  Trash2,
-  Check,
-  Search,
-  Flag,
-} from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { Flag, ListChecks, Repeat2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { RestTimerProvider, useRestTimer } from "@/components/rest-timer";
+import { Dial } from "@/components/workout/dial";
+import { SetPips } from "@/components/workout/set-pips";
+import { ExerciseStage } from "@/components/workout/exercise-stage";
+import { EditSheet, ExactSetDialog } from "@/components/workout/edit-sheet";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  RestTimer,
-  RestTimerProvider,
-  useRestTimer,
-} from "@/components/rest-timer";
-import {
-  cacheExercises,
-  getCachedExercises,
   getLocalWorkout,
   saveLocalWorkout,
   type CachedExercise,
   type LocalWorkout,
   type LocalSet,
 } from "@/lib/offline-store";
+import { confirmHaptic } from "@/lib/haptics";
+import { snapReps, snapWeight, stepReps, stepWeight } from "@/lib/plates";
+import { useOnline } from "@/lib/use-online";
 import { useWakeLock } from "@/lib/use-wake-lock";
-import { listExercises } from "@/server/actions/exercises";
 import { getPrefillSets, syncOfflineWorkout } from "@/server/actions/workouts";
-
-type Exercise = CachedExercise;
 
 /** Batches IndexedDB writes without letting the UI lag behind them. */
 const PERSIST_DEBOUNCE_MS = 300;
@@ -65,9 +41,13 @@ function WorkoutBody() {
   const { clientId } = useParams<{ clientId: string }>();
   const router = useRouter();
   const restTimer = useRestTimer();
+  const online = useOnline();
   const [workout, setWorkout] = useState<LocalWorkout | null>(null);
   const [loading, setLoading] = useState(true);
   const [finishing, setFinishing] = useState(false);
+  const [selectedSetId, setSelectedSetId] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [exactOpen, setExactOpen] = useState(false);
 
   useEffect(() => {
     getLocalWorkout(clientId)
@@ -128,69 +108,143 @@ function WorkoutBody() {
 
   useWakeLock(!loading && workout !== null && !finishing);
 
-  function patchSet(id: string, patch: Partial<LocalSet>) {
-    if (!workout) return;
-    const prev = workout.sets.find((s) => s.id === id);
-    // Auto-start rest timer the moment a set is flipped to done.
-    if (prev && !prev.done && patch.done === true) restTimer.start();
-    void persist({
-      ...workout,
-      sets: workout.sets.map((s) => (s.id === id ? { ...s, ...patch } : s)),
-    });
-  }
-
-  function deleteSet(id: string) {
-    if (!workout) return;
-    void persist({ ...workout, sets: workout.sets.filter((s) => s.id !== id) });
-  }
-
-  function addSet(exerciseId: string) {
-    if (!workout) return;
-    const ofEx = workout.sets.filter((s) => s.exerciseId === exerciseId);
-    const last = ofEx[ofEx.length - 1];
-    const template = last ?? workout.sets[0];
-    if (!template) return;
-    const newSet: LocalSet = {
-      id: `${clientId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-      exerciseId,
-      exerciseName: template.exerciseName,
-      muscleGroup: template.muscleGroup,
-      reps: last?.reps ?? 0,
-      weight: last?.weight ?? 0,
-      done: false,
-      order: workout.sets.length,
-    };
-    void persist({ ...workout, sets: [...workout.sets, newSet] });
-  }
-
-  async function addExercise(ex: Exercise) {
-    if (!workout) return;
-    let prefill: { reps: number; weight: number }[] = [];
-    try {
-      prefill = await getPrefillSets(ex.id);
-    } catch {
-      /* offline → start from zero */
+  // Group sets by exercise, preserving first-seen order.
+  const groups = useMemo(() => {
+    const out: { exerciseId: string; name: string; sets: LocalSet[] }[] = [];
+    for (const s of workout?.sets ?? []) {
+      let g = out.find((x) => x.exerciseId === s.exerciseId);
+      if (!g) {
+        g = { exerciseId: s.exerciseId, name: s.exerciseName, sets: [] };
+        out.push(g);
+      }
+      g.sets.push(s);
     }
-    const base = prefill.length > 0 ? prefill : [{ reps: 0, weight: 0 }];
-    const newSets: LocalSet[] = base.map((p, i) => ({
-      id: `${clientId}_${Date.now()}_${i}`,
-      exerciseId: ex.id,
-      exerciseName: ex.name,
-      muscleGroup: ex.muscleGroup,
-      reps: p.reps,
-      weight: p.weight,
-      prev: prefill[i] ?? null,
-      done: false,
-      order: workout.sets.length + i,
-    }));
-    void persist({ ...workout, sets: [...workout.sets, ...newSets] });
-  }
+    return out;
+  }, [workout]);
+
+  // Selection is derived, not stored, so a deleted set can never strand the
+  // dial on an id that no longer exists.
+  const sets = workout?.sets ?? [];
+  const current =
+    sets.find((s) => s.id === selectedSetId) ??
+    sets.find((s) => !s.done) ??
+    sets[0] ??
+    null;
+  const groupIndex = current
+    ? groups.findIndex((g) => g.exerciseId === current.exerciseId)
+    : -1;
+  const group = groupIndex >= 0 ? groups[groupIndex] : null;
+
+  const patchSet = useCallback(
+    (id: string, patch: Partial<LocalSet>) => {
+      if (!workout) return;
+      const before = workout.sets.find((s) => s.id === id);
+      // Auto-start rest the moment a set is flipped to done.
+      if (before && !before.done && patch.done === true) restTimer.start();
+      persist({
+        ...workout,
+        sets: workout.sets.map((s) => (s.id === id ? { ...s, ...patch } : s)),
+      });
+    },
+    [persist, restTimer, workout],
+  );
+
+  const deleteSet = useCallback(
+    (id: string) => {
+      if (!workout) return;
+      persist({ ...workout, sets: workout.sets.filter((s) => s.id !== id) });
+    },
+    [persist, workout],
+  );
+
+  const addSet = useCallback(
+    (exerciseId: string) => {
+      if (!workout) return;
+      const ofEx = workout.sets.filter((s) => s.exerciseId === exerciseId);
+      const last = ofEx[ofEx.length - 1];
+      const template = last ?? workout.sets[0];
+      if (!template) return;
+      const newSet: LocalSet = {
+        id: `${clientId}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        exerciseId,
+        exerciseName: template.exerciseName,
+        muscleGroup: template.muscleGroup,
+        reps: last?.reps ?? 0,
+        weight: last?.weight ?? 0,
+        done: false,
+        order: workout.sets.length,
+      };
+      persist({ ...workout, sets: [...workout.sets, newSet] });
+    },
+    [clientId, persist, workout],
+  );
+
+  const addExercise = useCallback(
+    async (ex: CachedExercise) => {
+      if (!workout) return;
+      let prefill: { reps: number; weight: number }[] = [];
+      try {
+        prefill = await getPrefillSets(ex.id);
+      } catch {
+        /* offline → start from zero */
+      }
+      const base = prefill.length > 0 ? prefill : [{ reps: 0, weight: 0 }];
+      const newSets: LocalSet[] = base.map((p, i) => ({
+        id: `${clientId}_${Date.now()}_${i}`,
+        exerciseId: ex.id,
+        exerciseName: ex.name,
+        muscleGroup: ex.muscleGroup,
+        // Prefills come out of Postgres as Float, so they can arrive off the
+        // plate grid the dial steps on.
+        reps: snapReps(p.reps),
+        weight: snapWeight(p.weight),
+        prev: prefill[i] ?? null,
+        done: false,
+        order: workout.sets.length + i,
+      }));
+      persist({ ...workout, sets: [...workout.sets, ...newSets] });
+      setSelectedSetId(newSets[0]?.id ?? null);
+    },
+    [clientId, persist, workout],
+  );
+
+  /** Log the current set and move to whatever should be logged next. */
+  const logCurrent = useCallback(
+    (values?: { weight: number; reps: number }) => {
+      if (!current || !group) return;
+      confirmHaptic();
+      patchSet(current.id, { ...values, done: true });
+      const rest = group.sets.filter((s) => s.id !== current.id && !s.done);
+      if (rest.length > 0) {
+        setSelectedSetId(rest[0].id);
+        return;
+      }
+      // Exercise finished — fall through to the next one with work left.
+      const nextGroup = groups
+        .slice(groupIndex + 1)
+        .find((g) => g.sets.some((s) => !s.done));
+      const nextSet = nextGroup?.sets.find((s) => !s.done);
+      if (nextSet) setSelectedSetId(nextSet.id);
+    },
+    [current, group, groupIndex, groups, patchSet],
+  );
+
+  const goToGroup = useCallback(
+    (delta: number) => {
+      if (groups.length < 2 || groupIndex < 0) return;
+      const next =
+        groups[(groupIndex + delta + groups.length) % groups.length];
+      const target = next.sets.find((s) => !s.done) ?? next.sets[0];
+      if (target) setSelectedSetId(target.id);
+    },
+    [groupIndex, groups],
+  );
 
   async function finish() {
     if (!workout) return;
     const doneSets = workout.sets.filter((s) => s.done);
     if (doneSets.length === 0) {
-      toast.error("Mark at least one set as done first.");
+      toast.error("Log at least one set first.");
       return;
     }
     setFinishing(true);
@@ -228,13 +282,10 @@ function WorkoutBody() {
 
   if (loading) {
     return (
-      <main className="gb-page-in mx-auto max-w-3xl space-y-4 px-4 py-5 pb-36">
-        <div className="space-y-1.5">
-          <div className="gb-skeleton h-6 w-40" />
-          <div className="gb-skeleton h-3 w-28" />
-        </div>
-        <div className="gb-skeleton h-28 w-full rounded-xl" />
-        <div className="gb-skeleton h-40 w-full rounded-xl" />
+      <main className="mx-auto flex h-[100dvh] max-w-md flex-col gap-4 px-4 py-5">
+        <div className="gb-skeleton h-10 w-full rounded-lg" />
+        <div className="gb-skeleton h-24 w-full rounded-xl" />
+        <div className="gb-skeleton mx-auto aspect-square w-full max-w-[min(20rem,70vw,40dvh)] rounded-full" />
       </main>
     );
   }
@@ -249,363 +300,145 @@ function WorkoutBody() {
     );
   }
 
-  // Group sets by exercise, preserving first-seen order.
-  const groups: { exerciseId: string; name: string; sets: LocalSet[] }[] = [];
-  for (const s of workout.sets) {
-    let g = groups.find((x) => x.exerciseId === s.exerciseId);
-    if (!g) {
-      g = { exerciseId: s.exerciseId, name: s.exerciseName, sets: [] };
-      groups.push(g);
-    }
-    g.sets.push(s);
-  }
-
-  const doneCount = workout.sets.filter((s) => s.done).length;
-  const totalVolume = workout.sets
-    .filter((s) => s.done)
-    .reduce((sum, s) => sum + s.weight * s.reps, 0);
+  const resting = restTimer.running;
 
   return (
-    <main className="gb-page-in mx-auto max-w-3xl space-y-4 px-4 py-5 pb-36">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl lg:text-4xl">
-          Active workout
-        </h1>
-        <p className="text-sm text-muted-foreground sm:text-base lg:text-lg">
-          Started{" "}
-          {new Date(workout.startedAt).toLocaleTimeString("en-IN", {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </p>
-      </div>
-
-      {/* Sticky rest timer — always visible while logging. */}
-      <div className="sticky top-2 z-20 -mx-1">
-        <RestTimer />
-      </div>
-
-      <AnimatePresence initial={false}>
-        {groups.map((g) => (
-          <motion.div
-            key={g.exerciseId}
-            layout
-            initial={{ opacity: 0, y: 14, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.98 }}
-            transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg sm:text-xl lg:text-2xl">
-                  {g.name}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <AnimatePresence initial={false}>
-                  {g.sets.map((s, i) => (
-                    <motion.div
-                      key={s.id}
-                      layout
-                      initial={{ opacity: 0, height: 0, y: -6 }}
-                      animate={{ opacity: 1, height: "auto", y: 0 }}
-                      exit={{ opacity: 0, height: 0, x: -24 }}
-                      transition={{
-                        duration: 0.22,
-                        ease: [0.22, 1, 0.36, 1],
-                      }}
-                    >
-                      <SetTile
-                        index={i}
-                        set={s}
-                        onPatch={(p) => patchSet(s.id, p)}
-                        onDelete={() => deleteSet(s.id)}
-                      />
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full gap-1"
-                  onClick={() => addSet(g.exerciseId)}
-                >
-                  <Plus className="size-4" /> Add set
-                </Button>
-              </CardContent>
-            </Card>
-          </motion.div>
-        ))}
-      </AnimatePresence>
-
-      <AddExerciseDialog onPick={addExercise} />
-
-      {/* Fixed Finish bar. Safe-area-aware on iOS notch devices. */}
-      <div
-        className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 backdrop-blur"
-        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-      >
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
-          <div className="text-sm leading-tight text-muted-foreground sm:text-base">
-            <span className="font-semibold text-foreground tabular-nums">
-              {doneCount}
-            </span>{" "}
-            sets ·{" "}
-            <span className="font-semibold text-foreground tabular-nums">
-              {Math.round(totalVolume).toLocaleString("en-IN")}
-            </span>{" "}
-            kg
+    <main
+      className="mx-auto flex h-[100dvh] max-w-md flex-col overflow-hidden"
+      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+    >
+      <header className="shrink-0 space-y-1 px-4 pt-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Elapsed startedAt={workout.startedAt} />
+            {!online && (
+              <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[0.7rem] font-medium text-amber-600 dark:text-amber-400">
+                Offline
+              </span>
+            )}
           </div>
-          <Button
-            onClick={finish}
-            disabled={finishing}
-            size="lg"
-            className="min-w-[8.5rem] gap-2"
-          >
-            <Flag className="size-4" />
-            {finishing ? "Saving…" : "Finish"}
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="ghost"
+              size="icon-lg"
+              aria-label="Edit sets"
+              onClick={() => setEditOpen(true)}
+            >
+              <ListChecks className="size-5" />
+            </Button>
+            <Button
+              onClick={finish}
+              disabled={finishing}
+              size="lg"
+              className="gap-2"
+            >
+              <Flag className="size-4" />
+              {finishing ? "Saving…" : "Finish"}
+            </Button>
+          </div>
         </div>
-      </div>
+        {group && (
+          <SetPips
+            sets={group.sets}
+            currentId={current?.id ?? null}
+            onSelect={setSelectedSetId}
+          />
+        )}
+      </header>
+
+      {current && group ? (
+        <>
+          <ExerciseStage
+            name={group.name}
+            position={groupIndex + 1}
+            total={groups.length}
+            weight={current.weight}
+            reps={current.reps}
+            prev={current.prev}
+            done={current.done}
+            onPrev={() => goToGroup(-1)}
+            onNext={() => goToGroup(1)}
+          />
+
+          <footer className="shrink-0 space-y-3 px-4 pb-4">
+            <Button
+              variant="secondary"
+              className="h-12 w-full gap-2 text-base"
+              disabled={!current.prev || resting}
+              onClick={() =>
+                current.prev &&
+                logCurrent({
+                  weight: snapWeight(current.prev.weight),
+                  reps: snapReps(current.prev.reps),
+                })
+              }
+            >
+              <Repeat2 className="size-5" /> Same as last time
+            </Button>
+            <Dial
+              mode={resting ? "rest" : "input"}
+              weight={current.weight}
+              reps={current.reps}
+              onWeightDetents={(d) =>
+                patchSet(current.id, { weight: stepWeight(current.weight, d) })
+              }
+              onRepsDetents={(d) =>
+                patchSet(current.id, { reps: stepReps(current.reps, d) })
+              }
+              onLog={() => logCurrent()}
+              onSkipRest={restTimer.reset}
+              onLongPress={() => setExactOpen(true)}
+              restRemaining={restTimer.remaining}
+              restDuration={restTimer.duration}
+            />
+          </footer>
+        </>
+      ) : (
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
+          <p className="text-muted-foreground">
+            No exercises yet. Add one to start logging.
+          </p>
+          <Button onClick={() => setEditOpen(true)}>Add exercise</Button>
+        </div>
+      )}
+
+      <EditSheet
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        groups={groups}
+        onPatch={patchSet}
+        onDelete={deleteSet}
+        onAddSet={addSet}
+        onAddExercise={addExercise}
+      />
+      <ExactSetDialog
+        set={current}
+        open={exactOpen}
+        onOpenChange={setExactOpen}
+        onPatch={(patch) => current && patchSet(current.id, patch)}
+      />
     </main>
   );
 }
 
-function SetTile({
-  index,
-  set,
-  onPatch,
-  onDelete,
-}: {
-  index: number;
-  set: LocalSet;
-  onPatch: (p: Partial<LocalSet>) => void;
-  onDelete: () => void;
-}) {
-  return (
-    <div
-      className={`rounded-lg border p-2.5 transition-colors ${
-        set.done ? "border-primary/40 bg-primary/5" : "bg-background"
-      }`}
-    >
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          Set {index + 1}
-          {set.prev && (
-            <span className="ml-2 normal-case tracking-normal tabular-nums">
-              Last: {set.prev.weight} kg × {set.prev.reps}
-            </span>
-          )}
-        </span>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => onPatch({ done: !set.done })}
-            aria-label={set.done ? "Mark set undone" : "Mark set done"}
-            className={`flex h-9 items-center gap-1.5 rounded-md border px-2.5 text-sm font-medium transition-colors ${
-              set.done
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-input hover:border-primary/40"
-            }`}
-          >
-            <Check className="size-4" />
-            {set.done ? "Done" : "Mark"}
-          </button>
-          <button
-            onClick={onDelete}
-            aria-label="Delete set"
-            className="flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-destructive"
-          >
-            <Trash2 className="size-4" />
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        <Stepper
-          label="kg"
-          value={set.weight}
-          step={2.5}
-          inputMode="decimal"
-          ariaLabel={`Set ${index + 1} weight`}
-          onChange={(v) => onPatch({ weight: v })}
-        />
-        <Stepper
-          label="Reps"
-          value={set.reps}
-          step={1}
-          min={0}
-          inputMode="numeric"
-          ariaLabel={`Set ${index + 1} reps`}
-          onChange={(v) => onPatch({ reps: Math.max(0, Math.round(v)) })}
-        />
-      </div>
-
-      <div className="mt-2 flex items-center gap-2">
-        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          RPE
-        </span>
-        <Input
-          type="number"
-          inputMode="decimal"
-          step="0.5"
-          min="1"
-          max="10"
-          placeholder="optional"
-          value={set.rpe ?? ""}
-          onChange={(e) =>
-            onPatch({
-              rpe: e.target.value ? Number(e.target.value) : null,
-            })
-          }
-          aria-label={`Set ${index + 1} RPE`}
-          className="h-8 max-w-24 text-center text-sm"
-        />
-      </div>
-    </div>
-  );
-}
-
-function Stepper({
-  label,
-  value,
-  step,
-  min = 0,
-  inputMode,
-  ariaLabel,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  step: number;
-  min?: number;
-  inputMode: "decimal" | "numeric";
-  ariaLabel: string;
-  onChange: (v: number) => void;
-}) {
-  function bump(delta: number) {
-    const next = Math.max(min, Math.round((value + delta) * 100) / 100);
-    onChange(next);
-  }
-  return (
-    <div className="flex items-stretch overflow-hidden rounded-md border bg-background">
-      <button
-        type="button"
-        onClick={() => bump(-step)}
-        aria-label={`Decrease ${ariaLabel} by ${step}`}
-        className="flex size-11 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-muted active:bg-muted/80 disabled:opacity-40"
-        disabled={value <= min}
-      >
-        <Minus className="size-4" />
-      </button>
-      <div className="flex flex-1 flex-col items-center justify-center px-1">
-        <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-          {label}
-        </span>
-        <input
-          type="number"
-          inputMode={inputMode}
-          value={value || ""}
-          onChange={(e) => onChange(Number(e.target.value) || 0)}
-          aria-label={ariaLabel}
-          className="w-full bg-transparent text-center text-lg font-semibold tabular-nums outline-none"
-        />
-      </div>
-      <button
-        type="button"
-        onClick={() => bump(step)}
-        aria-label={`Increase ${ariaLabel} by ${step}`}
-        className="flex size-11 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-muted active:bg-muted/80"
-      >
-        <Plus className="size-4" />
-      </button>
-    </div>
-  );
-}
-
-function AddExerciseDialog({ onPick }: { onPick: (ex: Exercise) => void }) {
-  const [open, setOpen] = useState(false);
-  const [q, setQ] = useState("");
-  const [list, setList] = useState<Exercise[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  // Fetch the full catalogue once per open and filter client-side — instant
-  // search, and the localStorage cache keeps the picker usable offline.
+/** Workout clock. Derived from the start timestamp, so it survives a reload. */
+function Elapsed({ startedAt }: { startedAt: string }) {
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    if (!open) return;
-    setLoading(true);
-    listExercises()
-      .then((l) => {
-        setList(l);
-        cacheExercises(l);
-      })
-      .catch(() => setList(getCachedExercises()))
-      .finally(() => setLoading(false));
-  }, [open]);
-
-  const needle = q.trim().toLowerCase();
-  const filtered = needle
-    ? list.filter((ex) => ex.name.toLowerCase().includes(needle))
-    : list;
-
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const secs = Math.max(0, Math.floor((now - new Date(startedAt).getTime()) / 1000));
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={<Button variant="secondary" className="w-full gap-2" />}
-      >
-        <Plus className="size-4" /> Add exercise
-      </DialogTrigger>
-      <DialogContent className="max-h-[80dvh] overflow-hidden">
-        <DialogHeader>
-          <DialogTitle>Add exercise</DialogTitle>
-        </DialogHeader>
-        <div className="relative">
-          <Search className="absolute left-2 top-2.5 size-4 text-muted-foreground" />
-          <Input
-            autoFocus
-            placeholder="Search…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            className="pl-8"
-          />
-        </div>
-        <div className="max-h-[55dvh] space-y-1 overflow-y-auto">
-          {loading && list.length === 0 ? (
-            Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between rounded-md px-3 py-2"
-              >
-                <span className="gb-skeleton h-4 w-40" />
-                <span className="gb-skeleton h-3 w-12" />
-              </div>
-            ))
-          ) : (
-            <>
-              {filtered.map((ex) => (
-                <button
-                  key={ex.id}
-                  onClick={() => {
-                    onPick(ex);
-                    setOpen(false);
-                    setQ("");
-                  }}
-                  className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
-                >
-                  <span>{ex.name}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {ex.muscleGroup}
-                  </span>
-                </button>
-              ))}
-              {!loading && filtered.length === 0 && (
-                <p className="py-6 text-center text-sm text-muted-foreground">
-                  No matches.
-                </p>
-              )}
-            </>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+    <span
+      className="font-mono text-sm font-semibold tabular-nums text-muted-foreground"
+      aria-label="Workout elapsed time"
+    >
+      {h > 0 ? `${h}:${String(m).padStart(2, "0")}` : m}:
+      {String(s).padStart(2, "0")}
+    </span>
   );
 }

@@ -7,7 +7,18 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/dashboard", "/api/"],
+      // Everything the middleware protects. These render nothing to a crawler
+      // anyway — it gets bounced to /sign-in — so indexing them only spends
+      // crawl budget on redirects.
+      disallow: [
+        "/dashboard",
+        "/workout",
+        "/exercises",
+        "/routines",
+        "/progress",
+        "/history",
+        "/api/",
+      ],
     },
     sitemap: `${base}/sitemap.xml`,
   };

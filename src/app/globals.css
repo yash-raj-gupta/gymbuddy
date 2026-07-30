@@ -232,6 +232,24 @@ button, [role="button"] {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* The workout dial. The knurled rings rotate one detent-width per step — a
+   short transition is what makes that read as a click into place rather than
+   a jump. The marker flash is remounted per detent to restart the animation,
+   and on iOS (no navigator.vibrate at all) it is the only detent feedback. */
+.gb-dial-ring {
+  transition: transform 90ms ease-out;
+}
+.gb-dial-drain {
+  transition: stroke-dashoffset 250ms linear;
+}
+.gb-dial-marker {
+  animation: gb-dial-tick 140ms ease-out;
+}
+@keyframes gb-dial-tick {
+  from { opacity: 0.3; }
+  to { opacity: 1; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .gb-reveal,
   .gb-reveal.gb-in,
@@ -242,6 +260,13 @@ button, [role="button"] {
     animation: none;
   }
   .gb-float {
+    animation: none;
+  }
+  .gb-dial-ring,
+  .gb-dial-drain {
+    transition: none;
+  }
+  .gb-dial-marker {
     animation: none;
   }
   html {
