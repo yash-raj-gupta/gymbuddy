@@ -10,8 +10,77 @@ import {
 } from "react";
 import { Timer, Play, Pause, RotateCcw, Bell, BellOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { alertHaptic } from "@/lib/haptics";
 
 const PRESETS = [60, 90, 120, 180];
+const DEFAULT_DURATION = 90;
+
+type Persisted = {
+  duration: number;
+  /** Absolute epoch ms, or null when not counting down. */
+  endsAt: number | null;
+  pausedRemaining: number;
+};
+
+function secondsUntil(endsAt: number): number {
+  return Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+}
+
+function readPersisted(key: string | null): Persisted | null {
+  if (!key || typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<Persisted>;
+    if (typeof parsed.duration !== "number") return null;
+    return {
+      duration: parsed.duration,
+      endsAt: typeof parsed.endsAt === "number" ? parsed.endsAt : null,
+      pausedRemaining:
+        typeof parsed.pausedRemaining === "number" ? parsed.pausedRemaining : 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function restoreInitialState(key: string | null): {
+  duration: number;
+  remaining: number;
+  endsAt: number | null;
+} {
+  const saved = readPersisted(key);
+  if (!saved) {
+    return {
+      duration: DEFAULT_DURATION,
+      remaining: DEFAULT_DURATION,
+      endsAt: null,
+    };
+  }
+  if (saved.endsAt !== null && saved.endsAt > Date.now()) {
+    return {
+      duration: saved.duration,
+      remaining: secondsUntil(saved.endsAt),
+      endsAt: saved.endsAt,
+    };
+  }
+  // Rest elapsed while we were away — restore it finished, but stay silent.
+  // The alert already fired, or the moment has long since passed.
+  return {
+    duration: saved.duration,
+    remaining: saved.endsAt !== null ? 0 : saved.pausedRemaining,
+    endsAt: null,
+  };
+}
+
+function writePersisted(key: string | null, value: Persisted): void {
+  if (!key || typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* private mode / quota — the timer still works in-session */
+  }
+}
 
 type Ctx = {
   duration: number;
@@ -93,12 +162,28 @@ function fireNotification() {
   }
 }
 
-export function RestTimerProvider({ children }: { children: React.ReactNode }) {
-  const [duration, setDuration] = useState(90);
-  const [remaining, setRemaining] = useState(90);
-  const [running, setRunning] = useState(false);
+export function RestTimerProvider({
+  children,
+  storageKey = null,
+}: {
+  children: React.ReactNode;
+  /** Scopes persisted timer state, so two workouts never share a countdown. */
+  storageKey?: string | null;
+}) {
+  // Restored synchronously rather than in an effect. Safe against hydration
+  // mismatch because the provider renders no DOM of its own, and every consumer
+  // of these values sits behind the workout page's `loading` branch, which is
+  // still true during SSR and the hydration render.
+  const [initial] = useState(() => restoreInitialState(storageKey));
+  const [duration, setDuration] = useState(initial.duration);
+  const [remaining, setRemaining] = useState(initial.remaining);
+  // Absolute deadline while running; null when paused, reset, or finished.
+  // Deriving `remaining` from this instead of decrementing a counter is what
+  // makes the timer survive background throttling and a screen lock.
+  const [endsAt, setEndsAt] = useState<number | null>(initial.endsAt);
   const [notifEnabled, setNotifEnabled] = useState(false);
-  const tick = useRef<ReturnType<typeof setInterval> | null>(null);
+  const firedFor = useRef<number | null>(null);
+  const running = endsAt !== null;
 
   // Snapshot Notification.permission on mount.
   useEffect(() => {
@@ -107,65 +192,75 @@ export function RestTimerProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const stopTick = useCallback(() => {
-    if (tick.current) clearInterval(tick.current);
-    tick.current = null;
-  }, []);
+  useEffect(() => {
+    writePersisted(storageKey, { duration, endsAt, pausedRemaining: remaining });
+  }, [storageKey, duration, endsAt, remaining]);
 
   useEffect(() => {
-    if (!running) return;
-    tick.current = setInterval(() => {
-      setRemaining((r) => {
-        if (r <= 1) {
-          stopTick();
-          setRunning(false);
-          // gymbuddy-prd.md §4 feature 4: vibration; plus audio + notification.
-          if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-            navigator.vibrate([300, 120, 300]);
-          }
-          playBeep();
-          fireNotification();
-          return 0;
-        }
-        return r - 1;
-      });
-    }, 1000);
-    return stopTick;
-  }, [running, stopTick]);
+    if (endsAt === null) return;
+
+    const sync = () => {
+      const left = secondsUntil(endsAt);
+      setRemaining(left);
+      if (left > 0) return;
+      setEndsAt(null);
+      // Guard against a double fire (StrictMode remount, or a visibility sync
+      // landing in the same tick as the interval).
+      if (firedFor.current === endsAt) return;
+      firedFor.current = endsAt;
+      // gymbuddy-prd.md §4 feature 4: vibration; plus audio + notification.
+      alertHaptic();
+      playBeep();
+      fireNotification();
+    };
+
+    // Sub-second so the displayed second flips close to when it actually turns.
+    const id = setInterval(sync, 250);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") sync();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    sync();
+
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [endsAt]);
 
   const start = useCallback(
     (seconds?: number) => {
       const s = seconds ?? duration;
       setDuration(s);
       setRemaining(s);
-      setRunning(true);
+      setEndsAt(Date.now() + s * 1000);
     },
     [duration],
   );
 
   const toggle = useCallback(() => {
-    setRunning((r) => {
-      // If finished, Play restarts from full duration.
-      if (!r && remaining === 0) setRemaining(duration);
-      return !r;
-    });
-  }, [remaining, duration]);
+    if (endsAt !== null) {
+      // Pause: freeze whatever is actually left, not the last rendered value.
+      setRemaining(secondsUntil(endsAt));
+      setEndsAt(null);
+      return;
+    }
+    // If finished, Play restarts from full duration.
+    const from = remaining === 0 ? duration : remaining;
+    setRemaining(from);
+    setEndsAt(Date.now() + from * 1000);
+  }, [endsAt, remaining, duration]);
 
   const reset = useCallback(() => {
-    stopTick();
-    setRunning(false);
+    setEndsAt(null);
     setRemaining(duration);
-  }, [duration, stopTick]);
+  }, [duration]);
 
-  const setPreset = useCallback(
-    (s: number) => {
-      stopTick();
-      setRunning(false);
-      setDuration(s);
-      setRemaining(s);
-    },
-    [stopTick],
-  );
+  const setPreset = useCallback((s: number) => {
+    setEndsAt(null);
+    setDuration(s);
+    setRemaining(s);
+  }, []);
 
   const requestNotif = useCallback(() => {
     if (typeof window === "undefined" || !("Notification" in window)) return;

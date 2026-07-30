@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Plus,
@@ -41,14 +41,21 @@ import {
   type LocalWorkout,
   type LocalSet,
 } from "@/lib/offline-store";
+import { useWakeLock } from "@/lib/use-wake-lock";
 import { listExercises } from "@/server/actions/exercises";
 import { getPrefillSets, syncOfflineWorkout } from "@/server/actions/workouts";
 
 type Exercise = CachedExercise;
 
+/** Batches IndexedDB writes without letting the UI lag behind them. */
+const PERSIST_DEBOUNCE_MS = 300;
+
 export default function ActiveWorkoutPage() {
+  const { clientId } = useParams<{ clientId: string }>();
   return (
-    <RestTimerProvider>
+    // Keyed so switching between two active workouts remounts the timer
+    // instead of carrying one workout's countdown into the other.
+    <RestTimerProvider key={clientId} storageKey={`gb-rest-${clientId}`}>
       <WorkoutBody />
     </RestTimerProvider>
   );
@@ -68,10 +75,58 @@ function WorkoutBody() {
       .finally(() => setLoading(false));
   }, [clientId]);
 
-  const persist = useCallback(async (next: LocalWorkout) => {
-    setWorkout(next);
-    await saveLocalWorkout(next);
+  const pendingWrite = useRef<LocalWorkout | null>(null);
+  const writeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flushWrite = useCallback(async () => {
+    if (writeTimer.current) {
+      clearTimeout(writeTimer.current);
+      writeTimer.current = null;
+    }
+    const next = pendingWrite.current;
+    pendingWrite.current = null;
+    if (next) await saveLocalWorkout(next);
   }, []);
+
+  const cancelWrite = useCallback(() => {
+    if (writeTimer.current) {
+      clearTimeout(writeTimer.current);
+      writeTimer.current = null;
+    }
+    pendingWrite.current = null;
+  }, []);
+
+  // React state updates immediately; the IndexedDB write is batched. The dial
+  // changes weight at every detent of a drag, and writing the whole workout
+  // object per detent is an order of magnitude more writes than the steppers
+  // ever made. The first change in a window still lands within 300 ms.
+  const persist = useCallback(
+    (next: LocalWorkout) => {
+      setWorkout(next);
+      pendingWrite.current = next;
+      if (writeTimer.current) return;
+      writeTimer.current = setTimeout(() => {
+        writeTimer.current = null;
+        void flushWrite();
+      }, PERSIST_DEBOUNCE_MS);
+    },
+    [flushWrite],
+  );
+
+  // A batched write must not be lost to a backgrounded tab or a navigation —
+  // those are exactly the moments a phone takes away mid-workout.
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") void flushWrite();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      void flushWrite();
+    };
+  }, [flushWrite]);
+
+  useWakeLock(!loading && workout !== null && !finishing);
 
   function patchSet(id: string, patch: Partial<LocalSet>) {
     if (!workout) return;
@@ -139,6 +194,9 @@ function WorkoutBody() {
       return;
     }
     setFinishing(true);
+    // Drop any batched write still holding the pre-finish workout — letting it
+    // fire after this would clear finishedAt and resurrect the session.
+    cancelWrite();
     const finished: LocalWorkout = {
       ...workout,
       finishedAt: new Date().toISOString(),
